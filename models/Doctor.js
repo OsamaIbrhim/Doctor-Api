@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import jwt from "jsonwebtoken";
+require("dotenv").config();
 
 const doctorSchema = mongoose.Schema(
   {
@@ -97,8 +98,7 @@ doctorSchema.methods.generateAuthToken = async function () {
 
   const token = jwt.sign(
     { _id: doctor._id.toString() },
-    // process.env.JWT_SECRET
-    "SECRET"
+    process.env.JWT_SECRET
   );
 
   doctor.tokens = doctor.tokens.concat({ token });

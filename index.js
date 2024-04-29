@@ -5,11 +5,12 @@ import doctorRoutes from "./routes/doctor.js";
 import patientRoutes from "./routes/patient.js";
 import prescriptionRoutes from "./routes/prescription.js";
 import drugRoutes from "./routes/drug.js";
+require("dotenv").config();
 
 const app = express();
 const db = mongoose.connection;
-const url =
-  "mongodb+srv://doctor010:doctor010@Doctor-app.bs4vgcs.mongodb.net/Doctor-app?retryWrites=true&w=majority";
+const url = process.env.MONGODB_URI;
+const PORT = process.env.PORT || 6000;
 
 app.use(
   cors({
@@ -32,7 +33,7 @@ mongoose
     useUnifiedTopology: true,
   })
   .then(() =>
-    app.listen(3000, () => console.log(`Server running in PORT 3000`))
+    app.listen(PORT, () => console.log(`Server running in PORT ${PORT}`))
   )
   .catch((error) => console.log(error.message));
 

@@ -5,11 +5,15 @@ import doctorRoutes from "./routes/doctor.js";
 import patientRoutes from "./routes/patient.js";
 import prescriptionRoutes from "./routes/prescription.js";
 import drugRoutes from "./routes/drug.js";
-require("dotenv").config();
+import { config } from "dotenv";
+import { resolve } from "path";
+
+const __dirname = resolve();
+config({ path: resolve(__dirname, ".env") });
 
 const app = express();
 const db = mongoose.connection;
-const url = process.env.MONGODB_URI;
+const url = process.env.MONGO_URI;
 const PORT = process.env.PORT || 6000;
 
 app.use(

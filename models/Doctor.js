@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import jwt from "jsonwebtoken";
-require("dotenv").config();
+import dotenv from "dotenv";
+dotenv.config();
 
 const doctorSchema = mongoose.Schema(
   {
@@ -72,6 +73,11 @@ const doctorSchema = mongoose.Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    isDoctor: {
+      type: Boolean,
+      default: false,
+      required: true,
     },
   },
   {

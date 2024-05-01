@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const validator = require("validator");
+import dotenv from "dotenv";
+dotenv.config();
 
 const patientSchema = mongoose.Schema({
   name: {
@@ -50,9 +52,9 @@ const patientSchema = mongoose.Schema({
     type: Number,
     required: true,
   },
-  doctorId: {
+  patientId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Doctor",
+    ref: "patient",
   },
 });
 
@@ -68,6 +70,20 @@ patientSchema.pre("save", async function (next) {
   }
   next();
 });
+
+patientSchema.methods.generateAuthToken = async function () {
+  const patient = this;
+
+  const token = jwt.sign(
+    { _id: patient._id.toString() },
+    process.env.JWT_SECRET
+  );
+
+  patient.tokens = patient.tokens.concat({ token });
+  await patient.save();
+
+  return token;
+};
 
 const Patient = mongoose.model("Patient", patientSchema);
 module.exports = Patient;

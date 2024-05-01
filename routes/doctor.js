@@ -3,12 +3,13 @@ const router = express.Router();
 import Doctor from "../models/Doctor.js";
 import nodemailer from "nodemailer";
 import crs from "crypto-random-string";
+import doctorAuth from "../middleware/doctorAuth.js";
 
 const transporter = nodemailer.createTransport({
   service: "Gmail",
   auth: {
-    user: "osamaibrhiim@gmail.com",
-    pass: "Osama.01024276623",
+    user: "",
+    pass: "",
   },
 });
 
@@ -105,7 +106,7 @@ router.post("/signIn", async (req, res) => {
 
 // geting the doctor by his token in the authrization header >>>>>
 //get all doctors for now -_-
-router.get("/", async (req, res) => {
+router.get("/", doctorAuth, async (req, res) => {
   try {
     const allDoctors = await Doctor.find({});
     // const doctor = await Doctor.findOne({ "tokens.token": token });
@@ -124,16 +125,12 @@ router.get("/", async (req, res) => {
   }
 });
 
-// deleting the doctor dy his ID
-router.delete("/del/:_id", async (req, res) => {
-  const id = req.params._id;
+// deleting the doctor
+router.delete("/del", doctorAuth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
 
   try {
-    const doctor = await Doctor.findById(id);
-
-    if (!doctor) {
-      return res.status(404).send("Doctor not found");
-    }
+    const doctor = await Doctor.findOne({ "tokens.token": token });
 
     await doctor.deleteOne();
 
@@ -145,17 +142,20 @@ router.delete("/del/:_id", async (req, res) => {
 });
 
 // Updating the doctor's data
-router.put("/update/:_id", async (req, res) => {
-  const id = req.params._id;
+router.put("/update", doctorAuth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+
   const updates = Object.keys(req.body);
   const allowedUpdates = [
     "name",
     "email",
     "password",
     "phone",
-    "dateOfBirth",
+    "address",
+    "gender",
+    "birthday",
     "department",
-    "national",
+    "nationalityNumber",
   ];
 
   const isValidOperation = updates.every((update) =>
@@ -167,20 +167,19 @@ router.put("/update/:_id", async (req, res) => {
   }
 
   try {
-    const doctor = await Doctor.findById(id);
-
+    const doctor = await Doctor.findOne({ "tokens.token": token });
     if (!doctor) {
       return res.status(404).send("Doctor not found");
     }
-
     updates.forEach((update) => (doctor[update] = req.body[update]));
     await doctor.save();
-
     res.send(doctor);
   } catch (error) {
     res.status(500).send("Failed to update doctor ");
   }
 });
+
+// get the doctor's patients
 
 const doctorRoutes = router;
 export default doctorRoutes;

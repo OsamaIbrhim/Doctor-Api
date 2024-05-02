@@ -79,18 +79,18 @@ const doctorSchema = mongoose.Schema(
       default: false,
       required: true,
     },
+    patients: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Patient",
+      },
+    ],
   },
   {
     timestamps: true,
     toJSON: { virtuals: true },
   }
 );
-
-doctorSchema.virtual("patients", {
-  ref: "Patient",
-  localField: "_id",
-  foreignField: "doctorId",
-});
 
 doctorSchema.pre("save", async function (next) {
   if (this.isModified("password")) {

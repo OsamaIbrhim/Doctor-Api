@@ -6,7 +6,7 @@ import { resolve } from "path";
 const __dirname = resolve();
 config({ path: resolve(__dirname, ".env") });
 
-const auth = async (req, res, next) => {
+const patientAuth = async (req, res, next) => {
   try {
     let token = req.header("Authorization");
 
@@ -27,6 +27,10 @@ const auth = async (req, res, next) => {
 
     if (!patient) {
       throw new Error("patient not found or token invalid");
+    }
+
+    if (!decoded.isDoctor) {
+      req.role = "patient";
     }
 
     req.token = token;

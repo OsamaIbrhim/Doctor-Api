@@ -29,6 +29,10 @@ const doctorAuth = async (req, res, next) => {
       throw new Error("doctor not found or token invalid");
     }
 
+    if (decoded.isDoctor) {
+      req.role = "doctor";
+    }
+
     req.token = token;
     req.doctor = doctor;
     next();

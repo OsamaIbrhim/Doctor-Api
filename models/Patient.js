@@ -1,67 +1,92 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
-const validator = require("validator");
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+import validator from "validator";
 import dotenv from "dotenv";
 dotenv.config();
 
-const patientSchema = mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-  },
-  email: {
-    type: String,
-    unique: true,
-    required: true,
-    maxlength: 50,
-    lowercase: true,
-    validate: [validator.isEmail, "Invalid email"],
-  },
-  phoneNumber: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  password: {
-    type: String,
-    trim: true,
-    required: true,
-    minlength: 7,
-    validate: {
-      validator(value) {
-        return !value.toLowerCase().includes("password");
-      },
-      message: "Password must not contain 'password'",
+const patientSchema = mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
     },
+    email: {
+      type: String,
+      unique: true,
+      required: true,
+      maxlength: 50,
+      lowercase: true,
+      validate: [validator.isEmail, "Invalid email"],
+    },
+    phoneNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    password: {
+      type: String,
+      trim: true,
+      required: true,
+      minlength: 7,
+      validate: {
+        validator(value) {
+          return !value.toLowerCase().includes("password");
+        },
+        message: "Password must not contain 'password'",
+      },
+    },
+    nationalityNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    address: {
+      type: String,
+      required: true,
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female"],
+      required: true,
+    },
+    birthday: {
+      type: Date,
+      required: true,
+    },
+    prescriptions: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Prescription",
+      },
+    ],
+    verificationCode: {
+      type: String,
+      unique: true,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    tokens: [
+      {
+        token: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
   },
-  nationalityNumber: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  address: {
-    type: String,
-    required: true,
-  },
-  gender: {
-    type: String,
-    enum: ["male", "female"],
-    required: true,
-  },
-  age: {
-    type: Number,
-    required: true,
-  },
-  patientId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "patient",
-  },
-});
+  {
+    toJSON: { virtuals: true },
+    timestamps: true,
+  }
+);
 
-patientSchema.virtual("prescriptions", {
-  ref: "Prescription",
-  localField: "_id",
-  foreignField: "patient",
+patientSchema.virtual("age").get(function () {
+  const diffMilliseconds = Date.now() - this.birthday.getTime();
+  const ageDate = new Date(diffMilliseconds);
+  return Math.abs(ageDate.getUTCFullYear() - 1970);
 });
 
 patientSchema.pre("save", async function (next) {
@@ -85,5 +110,21 @@ patientSchema.methods.generateAuthToken = async function () {
   return token;
 };
 
+patientSchema.statics.findByCredentials = async function (email, password) {
+  const patient = await this.findOne({ email });
+
+  if (!patient) {
+    throw new Error("Unable to login");
+  }
+
+  const isPasswordMatch = await bcrypt.compare(password, patient.password);
+
+  if (!isPasswordMatch) {
+    throw new Error("Unable to login");
+  }
+
+  return patient;
+};
+
 const Patient = mongoose.model("Patient", patientSchema);
-module.exports = Patient;
+export default Patient;

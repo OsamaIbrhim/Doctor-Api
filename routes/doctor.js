@@ -77,10 +77,9 @@ router.post("/verify", async (req, res) => {
     doctor.isVerified = true;
     await doctor.save();
 
-    // sending the all doctor's data  <<<<<<<<<<<<<<<<<<<<<<<
-    res.status(200).send(doctor);
+    res.status(200).send("Doctor verified successfully");
   } catch (error) {
-    res.status(500).send("Filed to verify doctor ");
+    res.status(500).send("Filed to verify doctor");
   }
 });
 
@@ -104,22 +103,38 @@ router.post("/signIn", async (req, res) => {
   }
 });
 
+// signOut
+router.post("/signOut", doctorAuth, async (req, res) => {
+  try {
+    req.doctor.tokens = req.doctor.tokens.filter(
+      (token) => token.token !== req.token
+    );
+
+    await req.doctor.save();
+
+    res.send("Logged out successfully");
+  } catch (error) {
+    res.status(500).send("Failed to logout");
+  }
+});
+
 // geting the doctor by his token in the authrization header >>>>>
 //get all doctors for now -_-
 router.get("/", doctorAuth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
   try {
-    const allDoctors = await Doctor.find({});
-    // const doctor = await Doctor.findOne({ "tokens.token": token });
+    const doctor = await Doctor.findOne({ "tokens.token": token });
 
-    // if (!doctor) {
-    //   return res.status(404).send("Doctor not found");
-    // }
+    if (!doctor) {
+      return res.status(404).send("Doctor not found");
+    }
 
-    // //send doctor without password and tokens
-    // doctor.password = undefined;
-    // doctor.tokens = undefined;
+    //send doctor without password and tokens
+    doctor.password = undefined;
+    doctor.tokens = undefined;
+    doctor.verificationCode = undefined;
 
-    res.send({ allDoctors });
+    res.send(doctor);
   } catch (error) {
     res.status(500).send("Failed to fiend doctor + ", error.message);
   }

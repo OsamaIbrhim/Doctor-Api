@@ -92,13 +92,22 @@ const doctorSchema = mongoose.Schema(
   }
 );
 
-doctorSchema.pre("save", async function (next) {
+//calculate age
+doctorSchema.virtual("age").get(function () {
+  const diffMilliseconds = Date.now() - this.birthday.getTime();
+  const ageDate = new Date(diffMilliseconds);
+  return Math.abs(ageDate.getUTCFullYear() - 1970);
+});
+
+// Hash the password before saving
+doctorSchema.pre("save", function (next) {
   if (this.isModified("password")) {
-    this.password = await bcrypt.hash(this.password, 8);
+    this.password = bcrypt.hash(this.password, 8);
   }
   next();
 });
 
+// Generate an auth token for the doctor
 doctorSchema.methods.generateAuthToken = async function () {
   const doctor = this;
 
@@ -113,6 +122,7 @@ doctorSchema.methods.generateAuthToken = async function () {
   return token;
 };
 
+// Find doctor by credentials (email and password) >> login
 doctorSchema.statics.findByCredentials = async function (email, password) {
   const doctor = await this.findOne({ email });
 

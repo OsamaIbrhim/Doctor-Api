@@ -83,12 +83,14 @@ const patientSchema = mongoose.Schema(
   }
 );
 
+// calculate age
 patientSchema.virtual("age").get(function () {
   const diffMilliseconds = Date.now() - this.birthday.getTime();
   const ageDate = new Date(diffMilliseconds);
   return Math.abs(ageDate.getUTCFullYear() - 1970);
 });
 
+// Hash the password before saving
 patientSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
     this.password = await bcrypt.hash(this.password, 8);
@@ -96,6 +98,7 @@ patientSchema.pre("save", async function (next) {
   next();
 });
 
+// Generate auth token for the patient
 patientSchema.methods.generateAuthToken = async function () {
   const patient = this;
 
@@ -110,6 +113,7 @@ patientSchema.methods.generateAuthToken = async function () {
   return token;
 };
 
+// Find patient by credentials (email and password) >> login
 patientSchema.statics.findByCredentials = async function (email, password) {
   const patient = await this.findOne({ email });
 

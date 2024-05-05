@@ -4,16 +4,19 @@ import Patient from "../models/Patient.js";
 import nodemailer from "nodemailer";
 import crs from "crypto-random-string";
 import patientAuth from "../middleware/patientAuth.js";
+import Prescription from "../models/Prescription.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 const transporter = nodemailer.createTransport({
   service: "Gmail",
   auth: {
-    user: "",
-    pass: "",
+    user: process.env.EMAIL,
+    pass: process.env.PASSWORD,
   },
 });
 
-// get patient data
+// get patient data by token >> profile
 router.get("/", patientAuth, async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
   try {
@@ -23,7 +26,7 @@ router.get("/", patientAuth, async (req, res) => {
       return res.status(404).send("patient not found");
     }
 
-    //send patient without password and tokens
+    //send patient without password , tokens and verification code
     patient.password = undefined;
     patient.tokens = undefined;
     patient.verificationCode = undefined;
@@ -34,7 +37,7 @@ router.get("/", patientAuth, async (req, res) => {
   }
 });
 
-// signUp for patient
+// signUp for patient >> register
 router.post("/signUp", async (req, res) => {
   const patient = new Patient(req.body);
   const verificationCode = crs({ length: 6, type: "numeric" });
@@ -48,40 +51,35 @@ router.post("/signUp", async (req, res) => {
       return res.status(400).send("patient already exists");
     }
 
-    // transporter.sendMail(
-    //   {
-    //     from: "osamaibrhiim@gmail.com",
-    //     to: patient.email,
-    //     subject: "Verification Code",
-    //     text: `Your verification code is: ${verificationCode}`,
-    //   },
-    //   (error, info) => {
-    //     if (error) {
-    //       console.error("Error sending email:", error);
-    //     } else {
-    //       console.log("Email sent:", info.response);
-    //     }
-    //   }
-    // );
-
-    patient.verificationCode = verificationCode;
-
-    await patient.generateAuthToken();
-
-    await patient.save();
-
-    // sending the verificationCode <<<<<<<<<<<<<<<<<<<
-    res.status(201).send({
-      id: patient._id,
-      verificationCode: patient.verificationCode,
-    });
+    transporter.sendMail(
+      {
+        from: process.env.EMAIL,
+        to: patient.email,
+        subject: "Verification Code",
+        text: `Your verification code is: ${verificationCode}`,
+      },
+      async (error, info) => {
+        if (error) {
+          console.error("Error sending email:", error);
+        } else {
+          console.log("Email sent:", info.response);
+          patient.verificationCode = verificationCode;
+          await patient.generateAuthToken();
+          await patient.save();
+          res.status(201).send({
+            id: patient._id,
+            verificationCode: patient.verificationCode,
+          });
+        }
+      }
+    );
   } catch (error) {
     console.log(error);
     res.status(500).send("Filed to register ");
   }
 });
 
-// check the verify code
+// check the verify code for patient >> verify
 router.post("/verify", async (req, res) => {
   const { email, code } = req.body;
 
@@ -105,7 +103,7 @@ router.post("/verify", async (req, res) => {
   }
 });
 
-// signIn for patient
+// signIn for patient >> login
 router.post("/signIn", async (req, res) => {
   const { email, password } = req.body;
 
@@ -126,7 +124,7 @@ router.post("/signIn", async (req, res) => {
   }
 });
 
-// signOut for patient
+// signOut for patient >> logout
 router.post("/signOut", patientAuth, async (req, res) => {
   try {
     req.patient.tokens = req.patient.tokens.filter(
@@ -140,7 +138,7 @@ router.post("/signOut", patientAuth, async (req, res) => {
   }
 });
 
-// deleting the patient
+// deleting the patient account by token >> delete
 router.delete("/del", patientAuth, async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
 
@@ -156,7 +154,7 @@ router.delete("/del", patientAuth, async (req, res) => {
   }
 });
 
-// Updating the patient's data
+// Updating the patient's data by token >> update
 router.put("/update", async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
 
@@ -198,6 +196,27 @@ router.put("/update", async (req, res) => {
     res.status(201).send("patient updated successfully");
   } catch (error) {
     res.status(500).send("Failed to update patient ");
+  }
+});
+
+// get all patient's prescriptions by token >> prescriptions
+router.get("/prescriptions", patientAuth, async (req, res) => {
+  try {
+    const token = req.header("Authorization").replace("Bearer ", "");
+    const patient = await Patient.findOne({ "tokens.token": token });
+
+    if (!patient) {
+      return res.status(404).send("Patient not found");
+    }
+
+    const populatedPrescriptions = await Prescription.find({
+      _id: { $in: patient.prescriptions },
+    });
+
+    res.status(200).send(populatedPrescriptions);
+  } catch (error) {
+    console.error("Failed to get prescriptions:", error);
+    res.status(500).send("Failed to get prescriptions");
   }
 });
 

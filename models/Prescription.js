@@ -16,10 +16,6 @@ const prescriptionSchema = new mongoose.Schema(
         ref: "Drug",
       },
     ],
-    date: {
-      type: Date,
-      default: Date.now,
-    },
   },
   {
     timestamps: true,

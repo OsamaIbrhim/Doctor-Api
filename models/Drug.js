@@ -4,6 +4,7 @@ const drugSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
+    uneque: true,
   },
   using: {
     type: String,
@@ -13,10 +14,12 @@ const drugSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  alternative: {
-    type: String,
-    required: true,
-  },
+  alternative: [
+    {
+      type: String,
+      required: true,
+    },
+  ],
 });
 
 const Drug = mongoose.model("Drug", drugSchema);

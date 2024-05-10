@@ -205,11 +205,7 @@ router.post("/addPatient", doctorAuth, async (req, res) => {
   try {
     const doctor = await Doctor.findOne({ "tokens.token": token });
 
-    if (!doctor) {
-      return res.status(404).send("Doctor not found");
-    }
-
-    if (doctor.patients.includes(req.body.patientId)) {
+    if (doctor && doctor.patients.includes(req.body.patientId)) {
       return res.status(400).send("Patient already exists");
     }
 
@@ -218,7 +214,7 @@ router.post("/addPatient", doctorAuth, async (req, res) => {
 
     res.send(doctor);
   } catch (error) {
-    res.status(500).send("Failed to add patient ");
+    res.status(500).send("Failed to add patient " + error.message);
   }
 });
 
@@ -233,9 +229,13 @@ router.delete("/delPatient", doctorAuth, async (req, res) => {
       return res.status(404).send("Doctor not found");
     }
 
-    doctor.patients = doctor.patients.filter(
-      (patient) => patient.toString() !== req.body.patientId
-    );
+    if (!doctor.patients.includes(req.body.patientId)) {
+      return res
+        .status(404)
+        .send("Patient not found in doctor's patients list");
+    }
+
+    doctor.patients.pop(req.body.patientId);
     await doctor.save();
 
     res.send(doctor);
@@ -261,7 +261,19 @@ router.get("/patients", doctorAuth, async (req, res) => {
       return res.status(201).send("No patients found");
     }
 
-    res.status(201).send(doctor.patients);
+    const patients = doctor.patients.map((patient) => {
+      return {
+        name: patient.name,
+        email: patient.email,
+        phone: patient.phoneNumber,
+        address: patient.address,
+        nationalityNumber: patient.nationalityNumber,
+        gender: patient.gender,
+        age: patient.age,
+      };
+    });
+
+    res.status(201).send(patients);
   } catch (error) {
     res.status(500).send("Failed to get patients ");
   }

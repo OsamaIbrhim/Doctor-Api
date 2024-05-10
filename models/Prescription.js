@@ -1,18 +1,20 @@
 import mongoose from "mongoose";
 
-const prescriptionSchema = new mongoose.Schema(
+const { Schema } = mongoose;
+
+const prescriptionSchema = new Schema(
   {
     patient: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "Patient",
     },
     doctor: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "Doctor",
     },
     drugs: [
       {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: "Drug",
       },
     ],

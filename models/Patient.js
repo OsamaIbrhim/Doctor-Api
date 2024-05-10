@@ -5,7 +5,9 @@ import validator from "validator";
 import dotenv from "dotenv";
 dotenv.config();
 
-const patientSchema = mongoose.Schema(
+const { Schema } = mongoose;
+
+const patientSchema = new Schema(
   {
     name: {
       type: String,
@@ -56,7 +58,7 @@ const patientSchema = mongoose.Schema(
     },
     prescriptions: [
       {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: "Prescription",
       },
     ],
@@ -83,7 +85,7 @@ const patientSchema = mongoose.Schema(
   }
 );
 
-// calculate age
+// Calculate age
 patientSchema.virtual("age").get(function () {
   const diffMilliseconds = Date.now() - this.birthday.getTime();
   const ageDate = new Date(diffMilliseconds);
@@ -101,32 +103,25 @@ patientSchema.pre("save", async function (next) {
 // Generate auth token for the patient
 patientSchema.methods.generateAuthToken = async function () {
   const patient = this;
-
   const token = jwt.sign(
     { _id: patient._id.toString() },
     process.env.JWT_SECRET
   );
-
   patient.tokens = patient.tokens.concat({ token });
   await patient.save();
-
   return token;
 };
 
 // Find patient by credentials (email and password) >> login
 patientSchema.statics.findByCredentials = async function (email, password) {
   const patient = await this.findOne({ email });
-
   if (!patient) {
     throw new Error("Unable to login");
   }
-
   const isPasswordMatch = await bcrypt.compare(password, patient.password);
-
   if (!isPasswordMatch) {
     throw new Error("Unable to login");
   }
-
   return patient;
 };
 

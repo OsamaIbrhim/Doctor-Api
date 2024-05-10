@@ -1,20 +1,30 @@
 import mongoose from "mongoose";
 
-const drugSchema = new mongoose.Schema({
+const { Schema } = mongoose;
+
+const drugSchema = new Schema({
   name: {
     type: String,
     required: true,
-    uneque: true,
+    unique: true,
   },
-  using: {
+  usage: {
     type: String,
     required: true,
   },
-  sideEffect: {
-    type: String,
-    required: true,
-  },
-  alternative: [
+  side_effects: [
+    {
+      type: String,
+      required: true,
+    },
+  ],
+  contraindications: [
+    {
+      type: String,
+      required: true,
+    },
+  ],
+  similar_drugs: [
     {
       type: String,
       required: true,
@@ -23,4 +33,5 @@ const drugSchema = new mongoose.Schema({
 });
 
 const Drug = mongoose.model("Drug", drugSchema);
+
 export default Drug;

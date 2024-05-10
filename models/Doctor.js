@@ -3,9 +3,12 @@ import bcrypt from "bcrypt";
 import validator from "validator";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+
 dotenv.config();
 
-const doctorSchema = mongoose.Schema(
+const { Schema } = mongoose;
+
+const doctorSchema = new Schema(
   {
     name: {
       type: String,
@@ -81,7 +84,7 @@ const doctorSchema = mongoose.Schema(
     },
     patients: [
       {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: "Patient",
       },
     ],
@@ -92,7 +95,7 @@ const doctorSchema = mongoose.Schema(
   }
 );
 
-//calculate age
+// Virtual for calculating age
 doctorSchema.virtual("age").get(function () {
   const diffMilliseconds = Date.now() - this.birthday.getTime();
   const ageDate = new Date(diffMilliseconds);
@@ -100,9 +103,9 @@ doctorSchema.virtual("age").get(function () {
 });
 
 // Hash the password before saving
-doctorSchema.pre("save", function (next) {
+doctorSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
-    this.password = bcrypt.hash(this.password, 8);
+    this.password = await bcrypt.hash(this.password, 8);
   }
   next();
 });
@@ -110,34 +113,28 @@ doctorSchema.pre("save", function (next) {
 // Generate an auth token for the doctor
 doctorSchema.methods.generateAuthToken = async function () {
   const doctor = this;
-
   const token = jwt.sign(
     { _id: doctor._id.toString() },
     process.env.JWT_SECRET
   );
-
   doctor.tokens = doctor.tokens.concat({ token });
   await doctor.save();
-
   return token;
 };
 
-// Find doctor by credentials (email and password) >> login
+// Static method to find doctor by credentials (email and password) for login
 doctorSchema.statics.findByCredentials = async function (email, password) {
   const doctor = await this.findOne({ email });
-
   if (!doctor) {
     throw new Error("Unable to login");
   }
-
   const isPasswordMatch = await bcrypt.compare(password, doctor.password);
-
   if (!isPasswordMatch) {
     throw new Error("Unable to login");
   }
-
   return doctor;
 };
 
 const Doctor = mongoose.model("Doctor", doctorSchema);
+
 export default Doctor;

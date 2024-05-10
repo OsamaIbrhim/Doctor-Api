@@ -1,29 +1,46 @@
 import express from "express";
-const router = express.Router();
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
 import Prescription from "../models/Prescription.js";
 import Drug from "../models/Drug.js";
 
+const router = express.Router();
+
+// Get prescriptions by id
+router.get("/:id", async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const prescription = await Prescription.findById(id);
+
+    if (!prescription) {
+      return res.status(404).send("Prescription not found");
+    }
+
+    res.send(prescription);
+  } catch (error) {
+    console.error("Failed to fetch prescription:", error);
+    res.status(500).send("Failed to fetch prescription");
+  }
+});
+
+// Add prescription
 router.post("/add", async (req, res) => {
-  const patientId = req.body.patient;
-  const drugsNames = req.body.drugs;
-  const doctorId = req.body.doctor;
+  const { patient: patientId, drugs: drugsNames, doctor: doctorId } = req.body;
 
   try {
     const drugs = [];
-    for (let i = 0; i < drugsNames.length; i++) {
-      const drug = await Drug.findOne({ name: drugsNames[i] });
+    for (const name of drugsNames) {
+      const drug = await Drug.findOne({ name });
       if (!drug) {
         return res
           .status(404)
-          .send(`Drug ${drug} not found, please check the drug name.`);
+          .send(`Drug "${name}" not found, please check the drug name.`);
       }
       drugs.push(drug._id);
     }
 
     const patient = await Patient.findById(patientId);
-
     if (!patient) {
       return res
         .status(404)
@@ -31,32 +48,32 @@ router.post("/add", async (req, res) => {
     }
 
     const doctor = await Doctor.findById(doctorId);
-
     if (!doctor) {
       return res
         .status(401)
         .send(
-          "Sury you are not authorized to add prescription,\n only doctor can add prescription."
+          "Only doctors can add prescription, please provide valid doctor id."
         );
     }
 
     const prescription = new Prescription({
       patient: patientId,
       doctor: doctorId,
-      drugs: [...drugs],
+      drugs,
     });
     await prescription.save();
 
     patient.prescriptions.push(prescription._id);
     await patient.save();
 
-    res.send(prescription);
+    res.status(201).send(prescription);
   } catch (error) {
-    res.status(500).send("Failed to add prescription " + error);
+    console.error("Failed to add prescription:", error);
+    res.status(500).send("Failed to add prescription");
   }
 });
 
-//update prescription
+// Update prescription
 router.put("/update/:id", async (req, res) => {
   const { drugs: drugsNames } = req.body;
 
@@ -91,5 +108,22 @@ router.put("/update/:id", async (req, res) => {
   }
 });
 
-const prescriptionRoutes = router;
-export default prescriptionRoutes;
+// Delete prescription
+router.delete("/del/:id", async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const prescription = await Prescription.findByIdAndDelete(id);
+
+    if (!prescription) {
+      return res.status(404).send("Prescription not found");
+    }
+
+    res.send(`${prescription} deleted successfully`);
+  } catch (error) {
+    console.error("Failed to delete prescription:", error);
+    res.status(500).send("Failed to delete prescription");
+  }
+});
+
+export default router;

@@ -1,5 +1,4 @@
 import express from "express";
-const router = express.Router();
 import Patient from "../models/Patient.js";
 import nodemailer from "nodemailer";
 import crs from "crypto-random-string";
@@ -16,115 +15,101 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// get patient data by token >> profile
+const router = express.Router();
+
+// Get patient data by token
 router.get("/", patientAuth, async (req, res) => {
-  const token = req.header("Authorization").replace("Bearer ", "");
   try {
-    const patient = await Patient.findOne({ "tokens.token": token });
+    const patient = await Patient.findOne({ "tokens.token": req.token });
 
     if (!patient) {
-      return res.status(404).send("patient not found");
+      return res.status(404).send("Patient not found");
     }
 
-    //send patient without password , tokens and verification code
+    // Omit sensitive data from response
     patient.password = undefined;
     patient.tokens = undefined;
     patient.verificationCode = undefined;
 
-    res.status(201).send(patient);
+    res.status(200).send(patient);
   } catch (error) {
-    res.status(500).send("Failed to fiend patient + ", error.message);
+    console.error("Failed to find patient:", error);
+    res.status(500).send("Failed to find patient");
   }
 });
 
-// signUp for patient >> register
+// Sign up for patient
 router.post("/signUp", async (req, res) => {
   const patient = new Patient(req.body);
   const verificationCode = crs({ length: 6, type: "numeric" });
 
   try {
-    // Name - age - Email - Password - Phone - Date of Birth  - National - gender - address
     await patient.validate();
 
-    const existingpatient = await Patient.findOne({ email: patient.email });
-    if (existingpatient) {
-      return res.status(400).send("patient already exists");
+    const existingPatient = await Patient.findOne({ email: patient.email });
+    if (existingPatient) {
+      return res.status(400).send("Patient already exists");
     }
 
-    transporter.sendMail(
-      {
-        from: process.env.EMAIL,
-        to: patient.email,
-        subject: "Verification Code",
-        text: `Your verification code is: ${verificationCode}`,
-      },
-      async (error, info) => {
-        if (error) {
-          console.error("Error sending email:", error);
-        } else {
-          console.log("Email sent:", info.response);
-          patient.verificationCode = verificationCode;
-          await patient.generateAuthToken();
-          await patient.save();
-          res.status(201).send({
-            id: patient._id,
-            verificationCode: patient.verificationCode,
-          });
-        }
-      }
-    );
+    transporter.sendMail({
+      from: process.env.EMAIL,
+      to: patient.email,
+      subject: "Verification Code",
+      text: `Your verification code is: ${verificationCode}`,
+    });
+
+    patient.verificationCode = verificationCode;
+    await patient.generateAuthToken();
+    await patient.save();
+
+    res.status(201).send({
+      id: patient._id,
+      verificationCode: patient.verificationCode,
+    });
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Filed to register ");
+    console.error("Failed to register patient:", error);
+    res.status(500).send("Failed to register patient");
   }
 });
 
-// check the verify code for patient >> verify
+// Verify patient with verification code
 router.post("/verify", async (req, res) => {
   const { email, code } = req.body;
 
   try {
     const patient = await Patient.findOne({ email });
 
-    if (!patient) {
-      return res.status(404).send("patient not found");
-    }
-
-    if (code !== patient.verificationCode) {
+    if (!patient || patient.verificationCode !== code) {
       return res.status(401).send("Invalid verification code");
     }
 
     patient.isVerified = true;
     await patient.save();
 
-    res.status(200).send("patient verified successfully");
+    res.status(200).send("Patient verified successfully");
   } catch (error) {
-    res.status(500).send("Filed to verify patient");
+    console.error("Failed to verify patient:", error);
+    res.status(500).send("Failed to verify patient");
   }
 });
 
-// signIn for patient >> login
+// Sign in for patient
 router.post("/signIn", async (req, res) => {
   const { email, password } = req.body;
 
   try {
     const patient = await Patient.findByCredentials(email, password);
 
-    if (!patient) {
-      return res.status(404).send("patient not found");
-    }
-
     await patient.generateAuthToken();
 
-    // sending the patient's data
-    res.status(201).send(patient);
+    res.status(200).send(patient);
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Filed to login\n" + error.message);
+    console.error("Failed to sign in patient:", error);
+    res.status(401).send("Failed to sign in patient");
   }
 });
 
-// signOut for patient >> logout
+// Sign out for patient
 router.post("/signOut", patientAuth, async (req, res) => {
   try {
     req.patient.tokens = req.patient.tokens.filter(
@@ -132,32 +117,27 @@ router.post("/signOut", patientAuth, async (req, res) => {
     );
     await req.patient.save();
 
-    res.status(201).send("patient sign out successfully");
+    res.status(200).send("Patient signed out successfully");
   } catch (error) {
-    res.status(500).send("Filed to sign out ");
+    console.error("Failed to sign out patient:", error);
+    res.status(500).send("Failed to sign out patient");
   }
 });
 
-// deleting the patient account by token >> delete
-router.delete("/del", patientAuth, async (req, res) => {
-  const token = req.header("Authorization").replace("Bearer ", "");
-
+// Delete patient account by token
+router.delete("/delete", patientAuth, async (req, res) => {
   try {
-    const patient = await Patient.findOne({ "tokens.token": token });
+    await req.patient.deleteOne();
 
-    await patient.deleteOne();
-
-    res.status(201).send("patient deleted successfully");
+    res.status(200).send("Patient deleted successfully");
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Failed to delete patient \n" + error.message);
+    console.error("Failed to delete patient:", error);
+    res.status(500).send("Failed to delete patient");
   }
 });
 
-// Updating the patient's data by token >> update
-router.put("/update", async (req, res) => {
-  const token = req.header("Authorization").replace("Bearer ", "");
-
+// Update patient's data by token
+router.put("/update", patientAuth, async (req, res) => {
   const updates = Object.keys(req.body);
   const allowedUpdates = [
     "name",
@@ -181,36 +161,21 @@ router.put("/update", async (req, res) => {
   }
 
   try {
-    const patient = await Patient.findOne({ "tokens.token": token });
-    if (!patient) {
-      return res.status(404).send("patient not found");
-    }
-    updates.forEach((update) => (patient[update] = req.body[update]));
-    await patient.save();
+    updates.forEach((update) => (req.patient[update] = req.body[update]));
+    await req.patient.save();
 
-    // const updatedData = {};
-    // updates.forEach((update) => {
-    //   updatedData[update] = patient[update];
-    // });
-
-    res.status(201).send("patient updated successfully");
+    res.status(200).send("Patient updated successfully");
   } catch (error) {
-    res.status(500).send("Failed to update patient ");
+    console.error("Failed to update patient:", error);
+    res.status(500).send("Failed to update patient");
   }
 });
 
-// get all patient's prescriptions by token >> prescriptions
+// Get all patient's prescriptions by token
 router.get("/prescriptions", patientAuth, async (req, res) => {
   try {
-    const token = req.header("Authorization").replace("Bearer ", "");
-    const patient = await Patient.findOne({ "tokens.token": token });
-
-    if (!patient) {
-      return res.status(404).send("Patient not found");
-    }
-
     const populatedPrescriptions = await Prescription.find({
-      _id: { $in: patient.prescriptions },
+      _id: { $in: req.patient.prescriptions },
     });
 
     res.status(200).send(populatedPrescriptions);
@@ -220,5 +185,4 @@ router.get("/prescriptions", patientAuth, async (req, res) => {
   }
 });
 
-const patientRoutes = router;
-export default patientRoutes;
+export default router;

@@ -8,36 +8,23 @@ config({ path: resolve(__dirname, ".env") });
 
 const patientAuth = async (req, res, next) => {
   try {
-    let token = req.header("Authorization");
-
-    if (!token || !token.startsWith("Bearer ")) {
-      throw new Error("Authorization header missing or invalid");
-    }
-
-    if (token.startsWith("Bearer ")) {
-      token = token.slice(7, token.length).trimLeft();
-    }
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+    if (!token) throw new Error("Authorization header missing or invalid");
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     const patient = await Patient.findOne({
       _id: decoded._id,
       "tokens.token": token,
     });
 
-    if (!patient) {
-      throw new Error("patient not found or token invalid");
-    }
+    if (!patient) throw new Error("Patient not found or token invalid");
 
-    if (!decoded.isDoctor) {
-      req.role = "patient";
-    }
-
+    req.role = decoded.isDoctor ? "doctor" : "patient";
     req.token = token;
     req.patient = patient;
     next();
-  } catch (e) {
-    console.error("Auth middleware error:", e.message);
+  } catch (error) {
+    console.error("Auth middleware error:", error.message);
     res.status(401).send({ error: "Please authenticate." });
   }
 };

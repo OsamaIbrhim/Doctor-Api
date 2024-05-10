@@ -1,42 +1,42 @@
 import express from "express";
-const router = express.Router();
 import Drug from "../models/Drug.js";
 
-// GET all drugs
+const router = express.Router();
+
 router.get("/", async (req, res) => {
   try {
     const drugs = await Drug.find({});
     res.send(drugs);
   } catch (error) {
+    console.error("Failed to fetch drugs:", error);
     res.status(500).send("Failed to fetch drugs");
   }
 });
 
-// GET a drug by name
 router.get("/:id", async (req, res) => {
   const id = req.params.id;
   try {
     const drug = await Drug.findById(id);
     res.send(drug);
   } catch (error) {
+    console.error("Failed to fetch drug:", error);
     res.status(500).send("Failed to fetch drug");
   }
 });
 
-// add a new drug
 router.post("/add", async (req, res) => {
   try {
     const drug = new Drug(req.body);
     await drug.save();
     res.send(drug);
   } catch (error) {
+    console.error("Failed to add drug:", error);
     res.status(500).send("Failed to add drug");
   }
 });
 
-//update a drug by name
-router.put("/update/:name", async (req, res) => {
-  const { name } = req.params;
+router.put("/update/:id", async (req, res) => {
+  const { id } = req.params;
   const updates = req.body;
 
   try {
@@ -53,16 +53,18 @@ router.put("/update/:name", async (req, res) => {
   }
 });
 
-//delete a drug by name
 router.delete("/del/:name", async (req, res) => {
   const name = req.params.name;
   try {
-    const drug = await Drug.findOneAndDelete(name);
-    res.send(drug + " deleted successfully");
+    const drug = await Drug.findOneAndDelete({ name });
+    if (!drug) {
+      return res.status(404).send("Drug not found");
+    }
+    res.send(`${drug} deleted successfully`);
   } catch (error) {
+    console.error("Failed to delete drug:", error);
     res.status(500).send("Failed to delete drug");
   }
 });
 
-const drugRoutes = router;
-export default drugRoutes;
+export default router;

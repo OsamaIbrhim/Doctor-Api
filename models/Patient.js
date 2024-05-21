@@ -23,7 +23,6 @@ const patientSchema = new Schema(
     },
     phoneNumber: {
       type: String,
-      required: true,
       unique: true,
     },
     password: {
@@ -40,17 +39,14 @@ const patientSchema = new Schema(
     },
     nationalityNumber: {
       type: String,
-      required: true,
       unique: true,
     },
     address: {
       type: String,
-      required: true,
     },
     gender: {
       type: String,
       enum: ["male", "female"],
-      required: true,
     },
     birthday: {
       type: Date,

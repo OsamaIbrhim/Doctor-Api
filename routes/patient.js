@@ -44,6 +44,7 @@ router.post("/signUp", async (req, res) => {
   const verificationCode = crs({ length: 6, type: "numeric" });
 
   try {
+    // name, email, password and birthday are required
     await patient.validate();
 
     const existingPatient = await Patient.findOne({ email: patient.email });

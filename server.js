@@ -6,6 +6,7 @@ import doctorRoutes from "./routes/doctor.js";
 import patientRoutes from "./routes/patient.js";
 import prescriptionRoutes from "./routes/prescription.js";
 import drugRoutes from "./routes/drug.js";
+import assistantRoutes from "./routes/assistant.js";
 import { config } from "dotenv";
 import { resolve } from "path";
 
@@ -28,10 +29,11 @@ app.use(express.json());
 app.use(helmet());
 
 // Routes
-app.use("/doc", doctorRoutes);
 app.use("/pat", patientRoutes);
 app.use("/pre", prescriptionRoutes);
 app.use("/drug", drugRoutes);
+app.use("/doc", doctorRoutes);
+app.use("/ast", assistantRoutes);
 
 // Database connection
 const url = process.env.MONGO_URI;

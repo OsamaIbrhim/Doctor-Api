@@ -40,7 +40,7 @@ router.put("/update/:id", async (req, res) => {
   const updates = req.body;
 
   try {
-    const drug = await Drug.findOneAndUpdate({ name }, updates, { new: true });
+    const drug = await Drug.findOneAndUpdate({ id }, updates, { new: true });
 
     if (!drug) {
       return res.status(404).send("Drug not found");

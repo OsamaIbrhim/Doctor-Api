@@ -22,15 +22,6 @@ const doctorSchema = new Schema(
       lowercase: true,
       validate: [validator.isEmail, "Invalid email"],
     },
-    phoneNumber: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    department: {
-      type: String,
-      required: true,
-    },
     password: {
       type: String,
       trim: true,
@@ -43,23 +34,27 @@ const doctorSchema = new Schema(
         message: "Password must not contain 'password'",
       },
     },
+    department: {
+      type: String,
+      required: true,
+    },
+    phoneNumber: {
+      type: String,
+      unique: true,
+    },
     birthday: {
       type: Date,
-      required: true,
     },
     nationalityNumber: {
       type: String,
-      required: true,
       unique: true,
     },
     address: {
       type: String,
-      required: true,
     },
     gender: {
       type: String,
       enum: ["male", "female"],
-      required: true,
     },
     tokens: [
       {
@@ -77,15 +72,16 @@ const doctorSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    isDoctor: {
-      type: Boolean,
-      default: false,
-      required: true,
-    },
     patients: [
       {
         type: Schema.Types.ObjectId,
         ref: "Patient",
+      },
+    ],
+    assistants: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Assistant",
       },
     ],
   },
@@ -97,6 +93,7 @@ const doctorSchema = new Schema(
 
 // Virtual for calculating age
 doctorSchema.virtual("age").get(function () {
+  if (!this.birthday) return undefined;
   const diffMilliseconds = Date.now() - this.birthday.getTime();
   const ageDate = new Date(diffMilliseconds);
   return Math.abs(ageDate.getUTCFullYear() - 1970);
@@ -114,7 +111,7 @@ doctorSchema.pre("save", async function (next) {
 doctorSchema.methods.generateAuthToken = async function () {
   const doctor = this;
   const token = jwt.sign(
-    { _id: doctor._id.toString() },
+    { _id: doctor._id.toString(), userType: "doctor" },
     process.env.JWT_SECRET
   );
   doctor.tokens = doctor.tokens.concat({ token });

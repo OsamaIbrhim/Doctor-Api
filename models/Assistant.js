@@ -1,13 +1,14 @@
-import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import validator from "validator";
+import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const { Schema } = mongoose;
 
-const patientSchema = new Schema(
+const assistantSchema = new Schema(
   {
     name: {
       type: String,
@@ -21,10 +22,6 @@ const patientSchema = new Schema(
       lowercase: true,
       validate: [validator.isEmail, "Invalid email"],
     },
-    phoneNumber: {
-      type: String,
-      unique: true,
-    },
     password: {
       type: String,
       trim: true,
@@ -37,6 +34,18 @@ const patientSchema = new Schema(
         message: "Password must not contain 'password'",
       },
     },
+    doctorId: {
+      type: Schema.Types.ObjectId,
+      ref: "doctor",
+      required: true,
+    },
+    phoneNumber: {
+      type: String,
+      unique: true,
+    },
+    birthday: {
+      type: Date,
+    },
     nationalityNumber: {
       type: String,
       unique: true,
@@ -48,14 +57,12 @@ const patientSchema = new Schema(
       type: String,
       enum: ["male", "female"],
     },
-    birthday: {
-      type: Date,
-      required: true,
-    },
-    prescriptions: [
+    tokens: [
       {
-        type: Schema.Types.ObjectId,
-        ref: "Prescription",
+        token: {
+          type: String,
+          required: true,
+        },
       },
     ],
     verificationCode: {
@@ -66,61 +73,55 @@ const patientSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    tokens: [
-      {
-        token: {
-          type: String,
-          required: true,
-        },
-      },
-    ],
   },
   {
-    toJSON: { virtuals: true },
     timestamps: true,
+    toJSON: { virtuals: true },
   }
 );
 
-// Calculate age
-patientSchema.virtual("age").get(function () {
+// Virtual for calculating age
+assistantSchema.virtual("age").get(function () {
   if (!this.birthday) return undefined;
+
   const diffMilliseconds = Date.now() - this.birthday.getTime();
   const ageDate = new Date(diffMilliseconds);
   return Math.abs(ageDate.getUTCFullYear() - 1970);
 });
 
 // Hash the password before saving
-patientSchema.pre("save", async function (next) {
+assistantSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
     this.password = await bcrypt.hash(this.password, 8);
   }
   next();
 });
 
-// Generate auth token for the patient
-patientSchema.methods.generateAuthToken = async function () {
-  const patient = this;
+// Generate an auth token for the assistant
+assistantSchema.methods.generateAuthToken = async function () {
+  const assistant = this;
   const token = jwt.sign(
-    { _id: patient._id.toString(), userType: "patient" },
+    { _id: assistant._id.toString(), userType: "assistant" },
     process.env.JWT_SECRET
   );
-  patient.tokens = patient.tokens.concat({ token });
-  await patient.save();
+  assistant.tokens = assistant.tokens.concat({ token });
+  await assistant.save();
   return token;
 };
 
-// Find patient by credentials (email and password) >> login
-patientSchema.statics.findByCredentials = async function (email, password) {
-  const patient = await this.findOne({ email });
-  if (!patient) {
+// Static method to find assistant by credentials (email and password) for login
+assistantSchema.statics.findByCredentials = async function (email, password) {
+  const assistant = await this.findOne({ email });
+  if (!assistant) {
     throw new Error("Unable to login");
   }
-  const isPasswordMatch = await bcrypt.compare(password, patient.password);
+  const isPasswordMatch = await bcrypt.compare(password, assistant.password);
   if (!isPasswordMatch) {
     throw new Error("Unable to login");
   }
-  return patient;
+  return assistant;
 };
 
-const Patient = mongoose.model("Patient", patientSchema);
-export default Patient;
+const Assistant = mongoose.model("Assistant", assistantSchema);
+
+export default Assistant;

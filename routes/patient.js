@@ -1,8 +1,10 @@
 import express from "express";
 import Patient from "../models/Patient.js";
+import Doctor from "../models/Doctor.js";
+import Assistant from "../models/Assistant.js";
 import nodemailer from "nodemailer";
 import crs from "crypto-random-string";
-import patientAuth from "../middleware/patientAuth.js";
+import auth from "../middleware/auth.js";
 import Prescription from "../models/Prescription.js";
 import dotenv from "dotenv";
 dotenv.config();
@@ -18,9 +20,11 @@ const transporter = nodemailer.createTransport({
 const router = express.Router();
 
 // Get patient data by token
-router.get("/", patientAuth, async (req, res) => {
+router.get("/", auth, async (req, res) => {
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+
   try {
-    const patient = await Patient.findOne({ "tokens.token": req.token });
+    const patient = await Patient.findOne({ "tokens.token": token });
 
     if (!patient) {
       return res.status(404).send("Patient not found");
@@ -111,22 +115,34 @@ router.post("/signIn", async (req, res) => {
 });
 
 // Sign out for patient
-router.post("/signOut", patientAuth, async (req, res) => {
-  try {
-    req.patient.tokens = req.patient.tokens.filter(
-      (token) => token.token !== req.token
-    );
-    await req.patient.save();
+router.post("/signOut", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
 
-    res.status(200).send("Patient signed out successfully");
+  if (userType !== "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+
+  try {
+    const patien = await Patient.findOne({ "tokens.token": token });
+
+    if (!patien) {
+      return res.status(404).send("Assistant not found");
+    }
+
+    patien.tokens = req.assistant.tokens.filter((t) => t.token !== token);
+
+    await patien.save();
+
+    res.send("Logged out successfully");
   } catch (error) {
-    console.error("Failed to sign out patient:", error);
-    res.status(500).send("Failed to sign out patient");
+    res.status(500).send("Failed to logout: " + error.message);
   }
 });
 
 // Delete patient account by token
-router.delete("/delete", patientAuth, async (req, res) => {
+router.delete("/delete", auth, async (req, res) => {
   try {
     await req.patient.deleteOne();
 
@@ -138,7 +154,7 @@ router.delete("/delete", patientAuth, async (req, res) => {
 });
 
 // Update patient's data by token
-router.put("/update", patientAuth, async (req, res) => {
+router.put("/update", auth, async (req, res) => {
   const updates = Object.keys(req.body);
   const allowedUpdates = [
     "name",
@@ -173,7 +189,7 @@ router.put("/update", patientAuth, async (req, res) => {
 });
 
 // Get all patient's prescriptions by token
-router.get("/prescriptions", patientAuth, async (req, res) => {
+router.get("/prescriptions", auth, async (req, res) => {
   try {
     const populatedPrescriptions = await Prescription.find({
       _id: { $in: req.patient.prescriptions },
@@ -186,4 +202,98 @@ router.get("/prescriptions", patientAuth, async (req, res) => {
   }
 });
 
-export default router;
+// add patient to doctor's patients list by token >> addPatient
+router.post("/addPatient", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType === "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+
+  try {
+    if (userType === "doctor") {
+      const doctor = await Doctor.findOne({ "tokens.token": token });
+
+      if (doctor && doctor.patients.includes(req.body.email)) {
+        return res.status(400).send("Patient already exists");
+      }
+
+      const patient = await Patient.findOne({ email: req.body.email });
+
+      if (!patient) return res.status(404).send("Patient not found");
+
+      doctor.patients.push(patient._id);
+      await doctor.save();
+    } else if (userType === "assistant") {
+      const assistant = await Assistant.findOne({ "tokens.token": token });
+      const doctor = await Doctor.findById(assistant.doctorId);
+
+      if (doctor && doctor.patients.includes(req.body.email)) {
+        return res.status(400).send("Patient already exists");
+      }
+
+      const patient = await Patient.findOne({ email: req.body.email });
+
+      if (!patient) return res.status(404).send("Patient not found");
+
+      doctor.patients.push(patient._id);
+
+      await doctor.save();
+    }
+
+    res.send("Patient added successfully");
+  } catch (error) {
+    res.status(500).send("Failed to add patient " + error.message);
+  }
+});
+
+// get doctor's patients list by token >> patients
+router.get("/patients", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType === "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+
+  try {
+    let doctor;
+
+    if (userType === "assistant") {
+      const assistant = await Assistant.findOne({ "tokens.token": token });
+      doctor = await Doctor.findById(assistant.doctorId).populate("patients");
+    } else {
+      doctor = await Doctor.findOne({ "tokens.token": token }).populate(
+        "patients"
+      );
+    }
+
+    if (!doctor) {
+      return res.status(404).send("Doctor not found");
+    }
+
+    if (doctor.patients.length === 0) {
+      return res.status(201).send("No patients found");
+    }
+
+    const patients = doctor.patients.map((patient) => {
+      const sanitizedPatient = patient.toObject();
+      delete sanitizedPatient.password;
+      delete sanitizedPatient.tokens;
+      delete sanitizedPatient.verificationCode;
+      delete sanitizedPatient.isVerified;
+      delete sanitizedPatient.prescriptions;
+      return sanitizedPatient;
+    });
+
+    res.status(201).send(patients);
+  } catch (error) {
+    res.status(500).send("Failed to get patients " + error.message);
+  }
+});
+
+const patientRoutes = router;
+export default patientRoutes;

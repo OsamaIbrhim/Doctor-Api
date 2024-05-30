@@ -7,6 +7,7 @@ import crs from "crypto-random-string";
 import auth from "../middleware/auth.js";
 import Prescription from "../models/Prescription.js";
 import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({

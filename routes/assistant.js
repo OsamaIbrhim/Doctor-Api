@@ -222,7 +222,7 @@ router.put("/update", auth, async (req, res) => {
     "email",
     "password",
     "doctorId",
-    "phone",
+    "phoneNumber",
     "address",
     "gender",
     "birthday",
@@ -239,12 +239,8 @@ router.put("/update", auth, async (req, res) => {
   }
 
   try {
-    const assistant = await Assistant.findOne({ "tokens.token": token });
-    if (!assistant) {
-      return res.status(404).send("Assistant not found");
-    }
-    updates.forEach((update) => (assistant[update] = req.body[update]));
-    await assistant.save();
+    updates.forEach((update) => (req.user[update] = req.body[update]));
+    await req.user.save();
 
     res.send("Assistant updated successfully");
   } catch (error) {

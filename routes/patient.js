@@ -7,6 +7,7 @@ import crs from "crypto-random-string";
 import auth from "../middleware/auth.js";
 import Prescription from "../models/Prescription.js";
 import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
@@ -160,7 +161,7 @@ router.put("/update", auth, async (req, res) => {
     "name",
     "email",
     "password",
-    "phone",
+    "phoneNumber",
     "address",
     "gender",
     "birthday",
@@ -178,8 +179,8 @@ router.put("/update", auth, async (req, res) => {
   }
 
   try {
-    updates.forEach((update) => (req.patient[update] = req.body[update]));
-    await req.patient.save();
+    updates.forEach((update) => (req.user[update] = req.body[update]));
+    await req.user.save();
 
     res.status(200).send("Patient updated successfully");
   } catch (error) {

@@ -331,11 +331,15 @@ router.post("/addAssistant", auth, async (req, res) => {
   try {
     const doctor = await Doctor.findOne({ "tokens.token": token });
 
-    if (doctor && doctor.assistants.includes(req.body.assistantId)) {
+    const assistant = await Assistant.findOne({ email: req.body.email });
+    if (!assistant) return res.status(404).send("Assistant not found");
+    const {_id: assistantId} = assistant;
+
+    if (doctor && doctor.assistants.includes(assistantId)) {
       return res.status(400).send("Assistant already exists");
     }
 
-    doctor.assistants.push(req.body.assistantId);
+    doctor.assistants.push(assistantId);
     await doctor.save();
 
     res.send(doctor);

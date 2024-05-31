@@ -360,7 +360,7 @@ router.delete("/delAssistant", auth, async (req, res) => {
 
   try {
     const doctor = await Doctor.findOne({ "tokens.token": token });
-    const assistant = await Assistant.findOne({ email: req.body.email });
+    const assistant = await Assistant.findOne({ _id: req.body.id });
 
     if (!doctor) {
       return res.status(404).send("Doctor not found");

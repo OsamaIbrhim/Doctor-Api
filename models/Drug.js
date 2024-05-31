@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { async } from "regenerator-runtime";
 
 const { Schema } = mongoose;
 
@@ -8,6 +9,11 @@ const drugSchema = new Schema({
     required: true,
     unique: true,
   },
+  doctorId: {
+    type: Schema.Types.ObjectId,
+    ref: "Doctor",
+    required: true,
+  },
   usage: {
     type: String,
     required: true,
@@ -15,22 +21,45 @@ const drugSchema = new Schema({
   side_effects: [
     {
       type: String,
-      required: true,
     },
   ],
   contraindications: [
     {
       type: String,
-      required: true,
     },
   ],
   similar_drugs: [
     {
       type: String,
-      required: true,
     },
   ],
 });
+
+drugSchema.statics.updateDrug = async function (id, doctorId, updates) {
+  try {
+    const drug = await Drug.findOne({ id });
+
+    if (!drug) {
+      throw new Error("Drug not found");
+    }
+
+    if (String(drug.doctorId) !== String(doctorId)) {
+      throw new Error("Doctor ID does not match");
+    }
+
+    const updatedDrug = await Drug.findOneAndUpdate(
+      { id },
+      { $set: updates },
+      { new: true }
+    );
+
+    console.log("Updated drug:", updatedDrug);
+    return updatedDrug;
+  } catch (error) {
+    console.error("Error updating drug:", error);
+    throw error;
+  }
+};
 
 const Drug = mongoose.model("Drug", drugSchema);
 

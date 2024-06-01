@@ -192,8 +192,9 @@ router.put("/update", auth, async (req, res) => {
 // Get all patient's prescriptions by token
 router.get("/prescriptions", auth, async (req, res) => {
   try {
+    // TODO: Populate prescriptions with doctor's and drug's data
     const populatedPrescriptions = await Prescription.find({
-      _id: { $in: req.patient.prescriptions },
+      patient: req.user._id,
     });
 
     res.status(200).send(populatedPrescriptions);

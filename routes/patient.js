@@ -278,7 +278,7 @@ router.get("/patients", auth, async (req, res) => {
     }
 
     if (doctor.patients.length === 0) {
-      return res.status(201).send("No patients found");
+      return res.status(404).send("No patients found");
     }
 
     const patients = doctor.patients.map((patient) => {

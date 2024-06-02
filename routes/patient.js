@@ -189,6 +189,8 @@ router.put("/update", auth, async (req, res) => {
   }
 });
 
+// TODO: get patient's associated doctors
+
 // Get all patient's prescriptions by token
 router.get("/prescriptions", auth, async (req, res) => {
   try {

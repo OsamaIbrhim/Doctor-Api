@@ -23,7 +23,6 @@ const patientSchema = new Schema(
     },
     phoneNumber: {
       type: String,
-      unique: true,
     },
     password: {
       type: String,
@@ -39,7 +38,6 @@ const patientSchema = new Schema(
     },
     nationalityNumber: {
       type: String,
-      unique: true,
     },
     address: {
       type: String,

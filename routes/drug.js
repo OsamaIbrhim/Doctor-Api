@@ -86,10 +86,10 @@ router.put("/update", async (req, res) => {
   }
 });
 
-router.delete("/del/:name", async (req, res) => {
-  const name = req.params.name;
+router.delete("/del/:id", async (req, res) => {
+  const { id } = req.params;
   try {
-    const drug = await Drug.findOneAndDelete({ name });
+    const drug = await Drug.findOneAndDelete({ _id: id });
     if (!drug) {
       return res.status(404).send("Drug not found");
     }

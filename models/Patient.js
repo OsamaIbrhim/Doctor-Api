@@ -37,6 +37,10 @@ const patientSchema = new Schema(
         message: "Password must not contain 'password'",
       },
     },
+    birthday: {
+      type: Date,
+      required: true,
+    },
     nationalityNumber: {
       type: String,
       unique: true,
@@ -48,14 +52,21 @@ const patientSchema = new Schema(
       type: String,
       enum: ["male", "female"],
     },
-    birthday: {
-      type: Date,
-      required: true,
-    },
     prescriptions: [
       {
         type: Schema.Types.ObjectId,
         ref: "Prescription",
+      },
+    ],
+    doctors: [
+      {
+        id: {
+          type: Schema.Types.ObjectId,
+          ref: "Doctor",
+        },
+        name: {
+          type: String,
+        },
       },
     ],
     verificationCode: {

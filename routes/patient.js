@@ -6,8 +6,8 @@ import nodemailer from "nodemailer";
 import crs from "crypto-random-string";
 import auth from "../middleware/auth.js";
 import Prescription from "../models/Prescription.js";
-import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
@@ -21,22 +21,17 @@ const transporter = nodemailer.createTransport({
 const router = express.Router();
 
 // Get patient data by token
-router.get("/", auth, async (req, res) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
-
+router.get("/get-patient/:id", auth, async (req, res) => {
   try {
-    const patient = await Patient.findOne({ "tokens.token": token });
-
-    if (!patient) {
-      return res.status(404).send("Patient not found");
-    }
+    const patient = await Patient.findById(req.params.id);
 
     // Omit sensitive data from response
-    patient.password = undefined;
-    patient.tokens = undefined;
-    patient.verificationCode = undefined;
+    const sanitizedPatient = patient.toObject();
+    delete sanitizedPatient.password;
+    delete sanitizedPatient.tokens;
+    delete sanitizedPatient.verificationCode;
 
-    res.status(200).send(patient);
+    res.status(200).send(sanitizedPatient);
   } catch (error) {
     console.error("Failed to find patient:", error);
     res.status(500).send("Failed to find patient");
@@ -144,8 +139,22 @@ router.post("/signOut", auth, async (req, res) => {
 
 // Delete patient account by token
 router.delete("/delete", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+
   try {
-    await req.patient.deleteOne();
+    const patient = await Patient.findById(decoded._id);
+
+    if (!patient) {
+      return res.status(404).send("Patient not found");
+    }
+
+    await patient.remove();
 
     res.status(200).send("Patient deleted successfully");
   } catch (error) {
@@ -156,6 +165,14 @@ router.delete("/delete", auth, async (req, res) => {
 
 // Update patient's data by token
 router.put("/update", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+
   const updates = Object.keys(req.body);
   const allowedUpdates = [
     "name",
@@ -189,19 +206,87 @@ router.put("/update", auth, async (req, res) => {
   }
 });
 
-// Get all patient's prescriptions by token
-router.get("/prescriptions", auth, async (req, res) => {
+// get patient's doctors --> all doctors that the patient has
+router.get("/doctors", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+
   try {
-    const populatedPrescriptions = await Prescription.find({
-      _id: { $in: req.patient.prescriptions },
+    const patient = await Patient.findOne({ "tokens.token": token });
+
+    if (!patient) {
+      return res.status(404).send("Patient or doctor not found");
+    }
+
+    res.status(200).send(patient.doctors);
+  } catch (error) {
+    console.error("Failed to get doctor:", error);
+    res.status(500).send("Failed to get doctor");
+  }
+});
+
+// Get all patient's prescriptions by token --> prescriptions with name of drugs and doctor
+router.get("/prescriptions", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+
+  try {
+    const patient = await Patient.findOne({ "tokens.token": token });
+
+    if (!patient) {
+      return res.status(404).send("Patient not found");
+    }
+
+    const prescriptions = await Prescription.find({
+      _id: { $in: patient.prescriptions },
     });
 
-    res.status(200).send(populatedPrescriptions);
+    if (!prescriptions) {
+      return res.status(404).send("Prescriptions not found");
+    }
+
+    const updatedPrescriptions = await Promise.all(
+      prescriptions.map(async (prescription) => {
+        const doctor = await Doctor.findById(prescription.doctor);
+        if (!doctor) {
+          await prescription.remove();
+          return null;
+        }
+
+        const sanitizedDoctor = doctor.toObject();
+        delete sanitizedDoctor.password;
+        delete sanitizedDoctor.tokens;
+        delete sanitizedDoctor.verificationCode;
+        delete sanitizedDoctor.isVerified;
+        delete sanitizedDoctor.patients;
+        delete sanitizedDoctor.assistants;
+
+        return {
+          ...prescription.toObject(),
+          patient: { name: patient.name },
+          doctor: sanitizedDoctor,
+        };
+      })
+    );
+
+    res.status(200).send(updatedPrescriptions.filter((p) => p !== null));
   } catch (error) {
     console.error("Failed to get prescriptions:", error);
     res.status(500).send("Failed to get prescriptions");
   }
 });
+
+// doctor or assistant only routes /////////////////////////////////////////////
 
 // add patient to doctor's patients list by token >> addPatient
 router.post("/addPatient", auth, async (req, res) => {
@@ -217,34 +302,37 @@ router.post("/addPatient", auth, async (req, res) => {
     if (userType === "doctor") {
       const doctor = await Doctor.findOne({ "tokens.token": token });
 
-      if (doctor && doctor.patients.includes(req.body.email)) {
+      if (doctor && doctor.patients.includes(req.body.id)) {
         return res.status(400).send("Patient already exists");
       }
 
-      const patient = await Patient.findOne({ email: req.body.email });
+      const patient = await Patient.findById(req.body.id);
 
       if (!patient) return res.status(404).send("Patient not found");
 
+      patient.doctors.push({ id: doctor._id, name: doctor.name });
       doctor.patients.push(patient._id);
+
       await doctor.save();
     } else if (userType === "assistant") {
       const assistant = await Assistant.findOne({ "tokens.token": token });
       const doctor = await Doctor.findById(assistant.doctorId);
 
-      if (doctor && doctor.patients.includes(req.body.email)) {
+      if (doctor && doctor.patients.includes(req.body.id)) {
         return res.status(400).send("Patient already exists");
       }
 
-      const patient = await Patient.findOne({ email: req.body.email });
+      const patient = await Patient.findById(req.body.id);
 
       if (!patient) return res.status(404).send("Patient not found");
 
+      patient.doctors.push({ id: doctor._id, name: doctor.name });
       doctor.patients.push(patient._id);
 
       await doctor.save();
     }
 
-    res.send("Patient added successfully");
+    res.status(201).send("Patient added successfully");
   } catch (error) {
     res.status(500).send("Failed to add patient " + error.message);
   }
@@ -277,7 +365,7 @@ router.get("/patients", auth, async (req, res) => {
     }
 
     if (doctor.patients.length === 0) {
-      return res.status(201).send("No patients found");
+      return res.status(404).send("No patients found");
     }
 
     const patients = doctor.patients.map((patient) => {

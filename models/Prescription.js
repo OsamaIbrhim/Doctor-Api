@@ -5,17 +5,31 @@ const { Schema } = mongoose;
 const prescriptionSchema = new Schema(
   {
     patient: {
-      type: Schema.Types.ObjectId,
-      ref: "Patient",
+      _id: {
+        type: Schema.Types.ObjectId,
+        ref: "Patient",
+      },
+      name: {
+        type: String,
+        required: true,
+      },
     },
     doctor: {
-      type: Schema.Types.ObjectId,
-      ref: "Doctor",
+      _id: {
+        type: Schema.Types.ObjectId,
+        ref: "Doctor",
+      },
+      name: {
+        type: String,
+        required: true,
+      },
     },
     drugs: [
       {
-        type: Schema.Types.ObjectId,
-        ref: "Drug",
+        name: {
+          type: String,
+          required: true,
+        },
       },
     ],
   },

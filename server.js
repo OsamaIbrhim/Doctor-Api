@@ -14,7 +14,7 @@ const __dirname = resolve();
 config({ path: resolve(__dirname, ".env") });
 
 const app = express();
-const PORT = process.env.PORT || 6000;
+const PORT = process.env.PORT || 8880;
 
 // Middleware
 app.use(

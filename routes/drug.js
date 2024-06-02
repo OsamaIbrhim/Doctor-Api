@@ -44,7 +44,7 @@ router.post("/add", async (req, res) => {
   try {
     const drug = new Drug(req.body);
 
-    const doctor = await Doctor.find({ "tokens.token": token });
+    const doctor = await Doctor.findOne({ "tokens.token": token });
 
     if (!doctor) {
       return res.status(404).send("Doctor not found");

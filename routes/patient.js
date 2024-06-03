@@ -37,10 +37,11 @@ router.get("/", auth, async (req, res) => {
       return res.status(404).send("Patient not found");
     }
 
-    const sanitizedPatient = patient.toObject();
-    delete sanitizedPatient.password;
-    delete sanitizedPatient.tokens;
-    delete sanitizedPatient.verificationCode;
+    const sanitizedPatient = patient.map((patient) => {
+      const { password, tokens, verificationCode, ...sanitized } =
+        patient.toObject();
+      return sanitized;
+    });
 
     res.status(200).send(sanitizedPatient);
   } catch (error) {
@@ -55,10 +56,11 @@ router.get("/get-patient/:id", auth, async (req, res) => {
     const patient = await Patient.findById(req.params.id);
 
     // Omit sensitive data from response
-    const sanitizedPatient = patient.toObject();
-    delete sanitizedPatient.password;
-    delete sanitizedPatient.tokens;
-    delete sanitizedPatient.verificationCode;
+    const sanitizedPatient = patient.map((patient) => {
+      const { password, tokens, verificationCode, ...sanitized } =
+        patient.toObject();
+      return sanitized;
+    });
 
     res.status(200).send(sanitizedPatient);
   } catch (error) {
@@ -252,7 +254,28 @@ router.get("/doctors", auth, async (req, res) => {
       return res.status(404).send("Patient or doctor not found");
     }
 
-    res.status(200).send(patient.doctors);
+    // populate the doctors array with the doctor's name and id
+    await patient.populate("doctors");
+
+    // Omit sensitive data from doctors
+    const sanitizedDoctors = patient.doctors.map((doctor) => {
+      const {
+        password,
+        tokens,
+        verificationCode,
+        isVerified,
+        patients,
+        assistants,
+        nationalityNumber,
+        createdAt,
+        updatedAt,
+        birthday,
+        ...sanitized
+      } = doctor.toObject();
+      return sanitized;
+    });
+
+    res.status(200).send(sanitizedDoctors);
   } catch (error) {
     console.error("Failed to get doctor:", error);
     res.status(500).send("Failed to get doctor");
@@ -271,38 +294,52 @@ router.get("/prescriptions", auth, async (req, res) => {
 
   try {
     const patient = await Patient.findOne({ "tokens.token": token });
-
     if (!patient) {
       return res.status(404).send("Patient not found");
     }
 
-    const prescriptions = await Prescription.find({
-      _id: { $in: patient.prescriptions },
-    });
+    // populate the prescriptions array
+    await patient.populate("prescriptions");
 
-    if (!prescriptions) {
-      return res.status(404).send("Prescriptions not found");
-    }
+    const prescriptions = patient.prescriptions;
 
     const updatedPrescriptions = await Promise.all(
       prescriptions.map(async (prescription) => {
-        const doctor = await Doctor.findById(prescription.doctor);
-        if (!doctor) {
-          await prescription.remove();
-          return null;
-        }
+        // populate the doctor
+        await prescription.populate("doctor");
 
-        const sanitizedDoctor = doctor.toObject();
+        // Omit sensitive data from response
+        const sanitizedDoctor = prescription.doctor.toObject();
         delete sanitizedDoctor.password;
         delete sanitizedDoctor.tokens;
         delete sanitizedDoctor.verificationCode;
         delete sanitizedDoctor.isVerified;
         delete sanitizedDoctor.patients;
         delete sanitizedDoctor.assistants;
+        delete sanitizedDoctor.nationalityNumber;
+        delete sanitizedDoctor.createdAt;
+        delete sanitizedDoctor.updatedAt;
+        delete sanitizedDoctor.birthday;
+
+        // populate the patient
+        await prescription.populate("patient");
+
+        // Omit sensitive data from response
+        const sanitizedPatient = prescription.patient.toObject();
+        delete sanitizedPatient.password;
+        delete sanitizedPatient.tokens;
+        delete sanitizedPatient.verificationCode;
+        delete sanitizedPatient.isVerified;
+        delete sanitizedPatient.prescriptions;
+        delete sanitizedPatient.doctors;
+        delete sanitizedPatient.nationalityNumber;
+        delete sanitizedPatient.createdAt;
+        delete sanitizedPatient.updatedAt;
+        delete sanitizedPatient.birthday;
 
         return {
           ...prescription.toObject(),
-          patient: { name: patient.name },
+          patient: sanitizedPatient,
           doctor: sanitizedDoctor,
         };
       })
@@ -397,14 +434,24 @@ router.get("/patients", auth, async (req, res) => {
       return res.status(404).send("No patients found");
     }
 
+    const sanitizedPatient = patient.map((patient) => {
+      const { password, tokens, verificationCode, ...sanitized } =
+        patient.toObject();
+      return sanitized;
+    });
+
+    // Omit sensitive data from response
     const patients = doctor.patients.map((patient) => {
-      const sanitizedPatient = patient.toObject();
-      delete sanitizedPatient.password;
-      delete sanitizedPatient.tokens;
-      delete sanitizedPatient.verificationCode;
-      delete sanitizedPatient.isVerified;
-      delete sanitizedPatient.prescriptions;
-      return sanitizedPatient;
+      const {
+        password,
+        tokens,
+        verificationCode,
+        isVerified,
+        prescriptions,
+        doctors,
+        ...sanitized
+      } = patient.toObject();
+      return sanitized;
     });
 
     res.status(201).send(patients);

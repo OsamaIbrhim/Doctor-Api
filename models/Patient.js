@@ -58,13 +58,8 @@ const patientSchema = new Schema(
     ],
     doctors: [
       {
-        id: {
-          type: Schema.Types.ObjectId,
-          ref: "Doctor",
-        },
-        name: {
-          type: String,
-        },
+        type: Schema.Types.ObjectId,
+        ref: "Doctor",
       },
     ],
     verificationCode: {

@@ -68,18 +68,27 @@ router.post("/add", async (req, res) => {
 
     // create a new prescription
     const prescription = new Prescription({
-      patient: { _id: patientId, name: patient.name },
-      doctor: { _id: doctorId, name: doctor.name },
-      drugs: drugs.map((drug) => ({ _id: drug._id, name: drug.name })),
+      patient: { _id: patientId },
+      doctor: { _id: doctorId },
+      drugs: drugs.map((drug) => ({ name: drug.name })),
     });
+
+    // populate the patient's prescriptions and doctors
+    // await patient.populate("prescriptions");
+    // await patient.populate("doctors");
+
+    // chack if the doctor list is empty or not
+    if (patient.doctors.length === 0) {
+      patient.doctors.push({ _id: doctorId });
+    }
 
     // chack if the patient has the same doctor
     const doctorExist = patient.doctors.find(
-      (doc) => doc._id.toString() === doctorId.toString()
+      (doctor) => doctor._id.toString() === doctorId.toString()
     );
 
     if (!doctorExist) {
-      patient.doctors.push({ _id: doctorId, name: doctor.name });
+      patient.doctors.push((id = doctorId));
     }
 
     patient.prescriptions.push(prescription._id);

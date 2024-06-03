@@ -3,8 +3,40 @@ const router = express.Router();
 import jwt from "jsonwebtoken";
 import Drug from "../models/Drug.js";
 import Doctor from "../models/Doctor.js";
+import auth from "../middleware/auth.js";
 
-router.get("/", async (req, res) => {
+// get specific doctor's drug by token and drug id
+router.get("/spec_drug/:id", auth, async (req, res) => {
+  const { id } = req.params;
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "doctor") {
+    return res.status(401).send("Unauthorized user");
+  }
+
+  try {
+    const doctor = await Doctor.findOne({ "tokens.token": token });
+
+    if (!doctor) {
+      return res.status(404).send("Doctor not found");
+    }
+
+    const drug = await Drug.findOne({ _id: id, doctorId: doctor._id });
+
+    if (!drug) {
+      return res.status(404).send("Drug not found");
+    }
+
+    res.send(drug);
+  } catch (error) {
+    res.status(500).send("Failed to fetch drug");
+  }
+});
+
+// get all doctor's drugs by token
+router.get("/", auth, async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userType = decoded.userType;

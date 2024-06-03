@@ -20,7 +20,36 @@ const transporter = nodemailer.createTransport({
 
 const router = express.Router();
 
-// Get patient data by token
+// get patient's data by token --> patient profile
+router.get("/", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+
+  try {
+    const patient = await Patient.findOne({ "tokens.token": token });
+
+    if (!patient) {
+      return res.status(404).send("Patient not found");
+    }
+
+    const sanitizedPatient = patient.toObject();
+    delete sanitizedPatient.password;
+    delete sanitizedPatient.tokens;
+    delete sanitizedPatient.verificationCode;
+
+    res.status(200).send(sanitizedPatient);
+  } catch (error) {
+    console.error("Failed to get patient:", error);
+    res.status(500).send("Failed to get patient");
+  }
+});
+
+// Get patient data by id
 router.get("/get-patient/:id", auth, async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.id);

@@ -366,36 +366,35 @@ router.post("/addPatient", auth, async (req, res) => {
 
   try {
     if (userType === "doctor") {
+      const patient = await Patient.findOne({ email: req.body.email });
+      if (!patient) return res.status(404).send("Patient not found");
+      
       const doctor = await Doctor.findOne({ "tokens.token": token });
-
-      if (doctor && doctor.patients.includes(req.body.id)) {
+      if (doctor && doctor.patients.includes(patient._id)) {
         return res.status(400).send("Patient already exists");
       }
-
-      const patient = await Patient.findById(req.body.id);
-
-      if (!patient) return res.status(404).send("Patient not found");
 
       patient.doctors.push({ id: doctor._id, name: doctor.name });
       doctor.patients.push(patient._id);
 
       await doctor.save();
+      await patient.save();
     } else if (userType === "assistant") {
+      const patient = await Patient.findOne({ email: req.body.email });
+      if (!patient) return res.status(404).send("Patient not found");
+
       const assistant = await Assistant.findOne({ "tokens.token": token });
       const doctor = await Doctor.findById(assistant.doctorId);
 
-      if (doctor && doctor.patients.includes(req.body.id)) {
+      if (doctor && doctor.patients.includes(patient._id)) {
         return res.status(400).send("Patient already exists");
       }
-
-      const patient = await Patient.findById(req.body.id);
-
-      if (!patient) return res.status(404).send("Patient not found");
 
       patient.doctors.push({ id: doctor._id, name: doctor.name });
       doctor.patients.push(patient._id);
 
       await doctor.save();
+      await patient.save();
     }
 
     res.status(201).send("Patient added successfully");

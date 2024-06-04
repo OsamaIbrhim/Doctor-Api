@@ -36,7 +36,7 @@ router.get("/spec_drug/:id", auth, async (req, res) => {
 });
 
 // get all doctor's drugs by token
-router.get("/", auth, async (req, res) => {
+router.get("/", async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userType = decoded.userType;
@@ -64,6 +64,7 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
+// add drug
 router.post("/add", async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -91,6 +92,7 @@ router.post("/add", async (req, res) => {
   }
 });
 
+// update drug
 router.put("/update", async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -118,6 +120,7 @@ router.put("/update", async (req, res) => {
   }
 });
 
+// delete drug
 router.delete("/del/:id", async (req, res) => {
   const { id } = req.params;
   try {

@@ -37,6 +37,7 @@ router.post("/add", async (req, res) => {
   if (userType !== "doctor") {
     return res.status(401).send("Only doctors can add prescription.");
   }
+
   const { patient: patientId, drugs: drugsNames } = req.body;
 
   try {
@@ -138,7 +139,7 @@ router.put("/update/:id", async (req, res) => {
 });
 
 // Delete prescription
-router.delete("/del/:id", auth, async (req, res) => {
+router.delete("/del/:id", async (req, res) => {
   const id = req.params.id;
 
   // const token = req.header("Authorization").replace("Bearer ", "");

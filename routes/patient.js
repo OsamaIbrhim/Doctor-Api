@@ -433,12 +433,6 @@ router.get("/patients", auth, async (req, res) => {
       return res.status(404).send("No patients found");
     }
 
-    const sanitizedPatient = patient.map((patient) => {
-      const { password, tokens, verificationCode, ...sanitized } =
-        patient.toObject();
-      return sanitized;
-    });
-
     // Omit sensitive data from response
     const patients = doctor.patients.map((patient) => {
       const {

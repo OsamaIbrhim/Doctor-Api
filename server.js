@@ -9,6 +9,7 @@ import drugRoutes from "./routes/drug.js";
 import assistantRoutes from "./routes/assistant.js";
 import { config } from "dotenv";
 import { resolve } from "path";
+import auth from "./middleware/auth.js";
 
 const __dirname = resolve();
 config({ path: resolve(__dirname, ".env") });
@@ -30,8 +31,8 @@ app.use(helmet());
 
 // Routes
 app.use("/pat", patientRoutes);
-app.use("/pre", prescriptionRoutes);
-app.use("/drug", drugRoutes);
+app.use("/pre", auth, prescriptionRoutes);
+app.use("/drug", auth, drugRoutes);
 app.use("/doc", doctorRoutes);
 app.use("/ast", assistantRoutes);
 

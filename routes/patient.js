@@ -1,4 +1,5 @@
 import express from "express";
+const router = express.Router();
 import Patient from "../models/Patient.js";
 import Doctor from "../models/Doctor.js";
 import Assistant from "../models/Assistant.js";
@@ -18,7 +19,25 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const router = express.Router();
+// function to handle the sensitive data for the patient , doctor , assistant and prescription
+const handleSensitiveData = (data) => {
+  const sanitized = data;
+
+  delete sanitized.password;
+  delete sanitized.tokens;
+  delete sanitized.verificationCode;
+  delete sanitized.isVerified;
+  delete sanitized.prescriptions;
+  delete sanitized.doctors;
+  delete sanitized.nationalityNumber;
+  delete sanitized.createdAt;
+  delete sanitized.updatedAt;
+  delete sanitized.birthday;
+  delete sanitized.patients;
+  delete sanitized.assistants;
+
+  return sanitized;
+};
 
 // get patient's data by token --> patient profile
 router.get("/", auth, async (req, res) => {
@@ -37,13 +56,10 @@ router.get("/", auth, async (req, res) => {
       return res.status(404).send("Patient not found");
     }
 
-    const sanitizedPatient = patient.map((patient) => {
-      const { password, tokens, verificationCode, ...sanitized } =
-        patient.toObject();
-      return sanitized;
-    });
+    // omit sensitive data from response
+    const sanitized = handleSensitiveData(patient.toObject());
 
-    res.status(200).send(sanitizedPatient);
+    res.status(200).send(sanitized);
   } catch (error) {
     console.error("Failed to get patient:", error);
     res.status(500).send("Failed to get patient");
@@ -56,13 +72,9 @@ router.get("/get-patient/:id", auth, async (req, res) => {
     const patient = await Patient.findById(req.params.id);
 
     // Omit sensitive data from response
-    const sanitizedPatient = patient.map((patient) => {
-      const { password, tokens, verificationCode, ...sanitized } =
-        patient.toObject();
-      return sanitized;
-    });
+    const sanitized = handleSensitiveData(patient.toObject());
 
-    res.status(200).send(sanitizedPatient);
+    res.status(200).send(sanitized);
   } catch (error) {
     console.error("Failed to find patient:", error);
     res.status(500).send("Failed to find patient");
@@ -127,14 +139,17 @@ router.post("/verify", async (req, res) => {
 
 // Sign in for patient
 router.post("/signIn", async (req, res) => {
-  const { email, password } = req.body;
+  const { email, pass } = req.body;
 
   try {
-    const patient = await Patient.findByCredentials(email, password);
+    const patient = await Patient.findByCredentials(email, pass);
 
     await patient.generateAuthToken();
 
-    res.status(200).send(patient);
+    // omit sensitive data from response
+    const sanitized = handleSensitiveData(patient.toObject());
+
+    res.status(200).send(sanitized);
   } catch (error) {
     console.error("Failed to sign in patient:", error);
     res.status(401).send("Failed to sign in patient");
@@ -258,22 +273,9 @@ router.get("/doctors", auth, async (req, res) => {
     await patient.populate("doctors");
 
     // Omit sensitive data from doctors
-    const sanitizedDoctors = patient.doctors.map((doctor) => {
-      const {
-        password,
-        tokens,
-        verificationCode,
-        isVerified,
-        patients,
-        assistants,
-        nationalityNumber,
-        createdAt,
-        updatedAt,
-        birthday,
-        ...sanitized
-      } = doctor.toObject();
-      return sanitized;
-    });
+    const sanitizedDoctors = patient.doctors.map((doctor) =>
+      handleSensitiveData(doctor.toObject())
+    );
 
     res.status(200).send(sanitizedDoctors);
   } catch (error) {
@@ -309,33 +311,17 @@ router.get("/prescriptions", auth, async (req, res) => {
         await prescription.populate("doctor");
 
         // Omit sensitive data from response
-        const sanitizedDoctor = prescription.doctor.toObject();
-        delete sanitizedDoctor.password;
-        delete sanitizedDoctor.tokens;
-        delete sanitizedDoctor.verificationCode;
-        delete sanitizedDoctor.isVerified;
-        delete sanitizedDoctor.patients;
-        delete sanitizedDoctor.assistants;
-        delete sanitizedDoctor.nationalityNumber;
-        delete sanitizedDoctor.createdAt;
-        delete sanitizedDoctor.updatedAt;
-        delete sanitizedDoctor.birthday;
+        const sanitizedDoctor = handleSensitiveData(
+          prescription.doctor.toObject()
+        );
 
         // populate the patient
         await prescription.populate("patient");
 
         // Omit sensitive data from response
-        const sanitizedPatient = prescription.patient.toObject();
-        delete sanitizedPatient.password;
-        delete sanitizedPatient.tokens;
-        delete sanitizedPatient.verificationCode;
-        delete sanitizedPatient.isVerified;
-        delete sanitizedPatient.prescriptions;
-        delete sanitizedPatient.doctors;
-        delete sanitizedPatient.nationalityNumber;
-        delete sanitizedPatient.createdAt;
-        delete sanitizedPatient.updatedAt;
-        delete sanitizedPatient.birthday;
+        const sanitizedPatient = handleSensitiveData(
+          prescription.patient.toObject()
+        );
 
         return {
           ...prescription.toObject(),
@@ -368,13 +354,13 @@ router.post("/addPatient", auth, async (req, res) => {
     if (userType === "doctor") {
       const patient = await Patient.findOne({ email: req.body.email });
       if (!patient) return res.status(404).send("Patient not found");
-      
+
       const doctor = await Doctor.findOne({ "tokens.token": token });
       if (doctor && doctor.patients.includes(patient._id)) {
         return res.status(400).send("Patient already exists");
       }
 
-      patient.doctors.push({ id: doctor._id, name: doctor.name });
+      patient.doctors.push(doctor._id);
       doctor.patients.push(patient._id);
 
       await doctor.save();
@@ -390,7 +376,7 @@ router.post("/addPatient", auth, async (req, res) => {
         return res.status(400).send("Patient already exists");
       }
 
-      patient.doctors.push({ id: doctor._id, name: doctor.name });
+      patient.doctors.push(doctor._id);
       doctor.patients.push(patient._id);
 
       await doctor.save();
@@ -433,23 +419,9 @@ router.get("/patients", auth, async (req, res) => {
       return res.status(404).send("No patients found");
     }
 
-    const sanitizedPatient = patient.map((patient) => {
-      const { password, tokens, verificationCode, ...sanitized } =
-        patient.toObject();
-      return sanitized;
-    });
-
     // Omit sensitive data from response
-    const patients = doctor.patients.map((patient) => {
-      const {
-        password,
-        tokens,
-        verificationCode,
-        isVerified,
-        prescriptions,
-        doctors,
-        ...sanitized
-      } = patient.toObject();
+    const patients = doctor.patients.forEach((patient) => {
+      const sanitized = handleSensitiveData(patient.toObject());
       return sanitized;
     });
 

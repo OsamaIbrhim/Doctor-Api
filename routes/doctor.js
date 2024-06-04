@@ -17,6 +17,26 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// function to handle the sensitive data for the patient , doctor , assistant and prescription
+const handleSensitiveData = (data) => {
+  const sanitized = data;
+
+  delete sanitized.password;
+  delete sanitized.tokens;
+  delete sanitized.verificationCode;
+  delete sanitized.isVerified;
+  delete sanitized.prescriptions;
+  delete sanitized.doctors;
+  delete sanitized.nationalityNumber;
+  delete sanitized.createdAt;
+  delete sanitized.updatedAt;
+  delete sanitized.birthday;
+  delete sanitized.patients;
+  delete sanitized.assistants;
+
+  return sanitized;
+};
+
 // get the doctor's data >> profile
 router.get("/", auth, async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
@@ -34,11 +54,8 @@ router.get("/", auth, async (req, res) => {
       return res.status(404).send("Doctor not found");
     }
 
-    //send doctor without password , tokens and verification code
-    const sanitizedDoctor = doctor.toObject();
-    delete sanitizedDoctor.password;
-    delete sanitizedDoctor.tokens;
-    delete sanitizedDoctor.verificationCode;
+    //omit sensitive data from doctor
+    const sanitizedDoctor = handleSensitiveData(doctor.toObject());
 
     res.send(sanitizedDoctor);
   } catch (error) {
@@ -125,8 +142,11 @@ router.post("/signIn", async (req, res) => {
 
     await doctor.generateAuthToken();
 
+    // omit sensitive data from doctor
+    const sanitizedDoctor = handleSensitiveData(doctor.toObject());
+
     // sending the doctor's data
-    res.status(201).send(doctor);
+    res.status(201).send(sanitizedDoctor);
   } catch (error) {
     console.log(error);
     res.status(500).send("Filed to login ");
@@ -274,13 +294,9 @@ router.get("/assistants", auth, async (req, res) => {
       return res.status(404).send("Doctor not found");
     }
 
+    // omit sensitive data from assistants
     const assistants = doctor.assistants.map((assistant) => {
-      const sanitizedAssistant = assistant.toObject();
-      delete sanitizedAssistant.password;
-      delete sanitizedAssistant.tokens;
-      delete sanitizedAssistant.verificationCode;
-      delete sanitizedAssistant.isVerified;
-      delete sanitizedAssistant.doctorId;
+      const sanitizedAssistant = handleSensitiveData(assistant.toObject());
       return sanitizedAssistant;
     });
 
@@ -307,10 +323,8 @@ router.get("/spec_assistant/:email", auth, async (req, res) => {
       return res.status(404).send("Assistant not found");
     }
 
-    const sanitizedAssistant = assistant.toObject();
-    delete sanitizedAssistant.password;
-    delete sanitizedAssistant.tokens;
-    delete sanitizedAssistant.verificationCode;
+    // omit sensitive data from assistant
+    const sanitizedAssistant = handleSensitiveData(assistant.toObject());
 
     res.send(sanitizedAssistant);
   } catch (error) {
@@ -333,7 +347,7 @@ router.post("/addAssistant", auth, async (req, res) => {
 
     const assistant = await Assistant.findOne({ email: req.body.email });
     if (!assistant) return res.status(404).send("Assistant not found");
-    const {_id: assistantId} = assistant;
+    const { _id: assistantId } = assistant;
 
     if (doctor && doctor.assistants.includes(assistantId)) {
       return res.status(400).send("Assistant already exists");

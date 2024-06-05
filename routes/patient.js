@@ -71,10 +71,53 @@ router.get("/get-patient/:id", auth, async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.id);
 
-    // Omit sensitive data from response
-    const sanitized = handleSensitiveData(patient.toObject());
+    if (!patient) {
+      return res.status(404).send("Patient not found");
+    }
 
-    res.status(200).send(sanitized);
+    // Populate the prescriptions and doctors arrays
+    await patient.populate("prescriptions");
+    await patient.populate("doctors");
+
+    // Handle prescriptions and sensitive data
+    const prescriptions = patient.prescriptions;
+    let sensitivePrescriptions = [];
+
+    if (prescriptions.length > 0) {
+      // Populate the prescriptions' doctor and patient fields
+      await Promise.all(
+        prescriptions.map(async (prescription) => {
+          await prescription.populate("doctor");
+          await prescription.populate("patient");
+        })
+      );
+
+      sensitivePrescriptions = prescriptions.map((prescription) => {
+        const sanitizedDoctor = handleSensitiveData(
+          prescription.doctor.toObject()
+        );
+        const sanitizedPatient = handleSensitiveData(
+          prescription.patient.toObject()
+        );
+
+        return {
+          ...prescription.toObject(),
+          doctor: sanitizedDoctor,
+          patient: sanitizedPatient,
+        };
+      });
+    }
+
+    // Omit sensitive data from patient object
+    const sanitizedPatient = handleSensitiveData(patient.toObject());
+
+    // Include sensitive prescriptions in the response if they exist
+    const response = {
+      patient: sanitizedPatient,
+      prescriptions: sensitivePrescriptions,
+    };
+
+    res.status(200).send(response);
   } catch (error) {
     console.error("Failed to find patient:", error);
     res.status(500).send("Failed to find patient");
@@ -139,17 +182,22 @@ router.post("/verify", async (req, res) => {
 
 // Sign in for patient
 router.post("/signIn", async (req, res) => {
-  const { email, pass } = req.body;
+  const { email, password } = req.body;
 
   try {
-    const patient = await Patient.findByCredentials(email, pass);
+    const patient = await Patient.findByCredentials(email, password);
 
     await patient.generateAuthToken();
+
+    // save the token in value defore omitting the sensitive data
+    const token = patient.tokens[patient.tokens.length - 1].token;
+    console.log(token);
 
     // omit sensitive data from response
     const sanitized = handleSensitiveData(patient.toObject());
 
-    res.status(200).send(sanitized);
+    // send the token in the response
+    res.status(200).send({ token, ...sanitized });
   } catch (error) {
     console.error("Failed to sign in patient:", error);
     res.status(401).send("Failed to sign in patient");
@@ -420,7 +468,7 @@ router.get("/patients", auth, async (req, res) => {
     }
 
     // Omit sensitive data from response
-    const patients = doctor.patients.forEach((patient) => {
+    const patients = doctor.patients.map((patient) => {
       const sanitized = handleSensitiveData(patient.toObject());
       return sanitized;
     });

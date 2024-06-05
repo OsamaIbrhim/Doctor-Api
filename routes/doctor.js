@@ -142,11 +142,14 @@ router.post("/signIn", async (req, res) => {
 
     await doctor.generateAuthToken();
 
+    // save the token before omitting the sensitive data
+    const token = doctor.tokens[doctor.tokens.length - 1].token;
+
     // omit sensitive data from doctor
-    const sanitizedDoctor = handleSensitiveData(doctor.toObject());
+    const sanitized = handleSensitiveData(doctor.toObject());
 
     // sending the doctor's data
-    res.status(201).send(sanitizedDoctor);
+    res.status(201).send({ token, ...sanitized });
   } catch (error) {
     console.log(error);
     res.status(500).send("Filed to login ");
@@ -307,7 +310,7 @@ router.get("/assistants", auth, async (req, res) => {
 });
 
 // get specific assistant by token >> assistant
-router.get("/spec_assistant/:email", auth, async (req, res) => {
+router.get("/spec_assistant/:id", auth, async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userType = decoded.userType;
@@ -317,7 +320,7 @@ router.get("/spec_assistant/:email", auth, async (req, res) => {
   }
 
   try {
-    const assistant = await Assistant.findOne({ email: req.params.email });
+    const assistant = await Assistant.findById(req.params.id);
 
     if (!assistant) {
       return res.status(404).send("Assistant not found");

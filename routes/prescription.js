@@ -89,7 +89,7 @@ router.post("/add", async (req, res) => {
     );
 
     if (!doctorExist) {
-      patient.doctors.push((id = doctorId));
+      patient.doctors.push(doctorId);
     }
 
     patient.prescriptions.push(prescription._id);

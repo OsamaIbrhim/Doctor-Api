@@ -68,11 +68,10 @@ router.post("/signUp", auth, async (req, res) => {
       return res.status(404).send("Doctor not found");
     }
 
-    assistant.doctorId = doctor._id;
+    // push the doctorId to the assistant
+    assistant.doctors.push(doctor._id);
 
-    // name - email - password - doctorId
-    await assistant.validate();
-
+    // Check if the assistant already exists
     const existingAssistant = await Assistant.findOne({
       email: assistant.email,
     });
@@ -80,33 +79,30 @@ router.post("/signUp", auth, async (req, res) => {
       return res.status(400).send("Assistant already exists");
     }
 
+    // name - email - password
+    await assistant.validate();
+
+    // push the assistantId to the doctor
     doctor.assistants.push(assistant._id);
+
     await doctor.save();
     await assistant.save();
 
-    transporter.sendMail(
-      {
-        from: process.env.EMAIL,
-        to: assistant.email,
-        subject: "Verification Code",
-        text: `Your verification code is: ${verificationCode}`,
-      },
-      async (error, info) => {
-        if (error) {
-          console.error("Error sending email:", error);
-          return res.status(500).send("Failed to send verification email");
-        } else {
-          console.log("Email sent:", info.response);
-          assistant.verificationCode = verificationCode;
-          await assistant.generateAuthToken();
-          await assistant.save();
-          res.status(201).send({
-            id: assistant._id,
-            verificationCode: assistant.verificationCode,
-          });
-        }
-      }
-    );
+    transporter.sendMail({
+      from: process.env.EMAIL,
+      to: assistant.email,
+      subject: "Verification Code",
+      text: `Your verification code is: ${verificationCode}`,
+    });
+    assistant.verificationCode = verificationCode;
+
+    await assistant.generateAuthToken();
+    await assistant.save();
+
+    res.status(201).send({
+      id: assistant._id,
+      verificationCode: assistant.verificationCode,
+    });
   } catch (error) {
     res.status(500).send("Failed to register: " + error.message);
   }

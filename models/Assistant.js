@@ -34,11 +34,12 @@ const assistantSchema = new Schema(
         message: "Password must not contain 'password'",
       },
     },
-    doctorId: {
-      type: Schema.Types.ObjectId,
-      ref: "doctor",
-      required: true,
-    },
+    doctors: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "doctor",
+      },
+    ],
     phoneNumber: {
       type: String,
       unique: true,

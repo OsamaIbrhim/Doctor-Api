@@ -96,6 +96,14 @@ router.post("/add", async (req, res) => {
     await prescription.save();
     await patient.save();
 
+    // push the patient to the doctor's patients list if the patient is not exist
+    const patientExist = doctor.patients.find(
+      (patient) => patient._id.toString() === patientId.toString()
+    );
+    if (!patientExist) {
+      doctor.patients.push({ _id: patientId });
+    }
+
     res.status(201).send(prescription);
   } catch (error) {
     console.error("Failed to add prescription:", error);
@@ -148,6 +156,11 @@ router.delete("/del/:id", async (req, res) => {
 
   try {
     const prescription = await Prescription.findByIdAndDelete(id);
+
+    // populate the prescription's patient and doctor
+    await prescription.populate("patient");
+    await prescription.populate("doctor");
+
     const patient = await Patient.findById(prescription.patient._id);
 
     if (!prescription || !patient) {

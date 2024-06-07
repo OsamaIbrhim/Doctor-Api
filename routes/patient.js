@@ -6,7 +6,6 @@ import Assistant from "../models/Assistant.js";
 import nodemailer from "nodemailer";
 import crs from "crypto-random-string";
 import auth from "../middleware/auth.js";
-import Prescription from "../models/Prescription.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 dotenv.config();
@@ -133,6 +132,7 @@ router.post("/signUp", async (req, res) => {
     // name, email, password and birthday are required
     await patient.validate();
 
+    // check if the patient already exists
     const existingPatient = await Patient.findOne({ email: patient.email });
     if (existingPatient) {
       return res.status(400).send("Patient already exists");
@@ -191,7 +191,6 @@ router.post("/signIn", async (req, res) => {
 
     // save the token in value defore omitting the sensitive data
     const token = patient.tokens[patient.tokens.length - 1].token;
-    console.log(token);
 
     // omit sensitive data from response
     const sanitized = handleSensitiveData(patient.toObject());

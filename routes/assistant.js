@@ -21,6 +21,26 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// function to handle the sensitive data for the patient , doctor , assistant and prescription
+const handleSensitiveData = (data) => {
+  const sanitized = data;
+
+  delete sanitized.password;
+  delete sanitized.tokens;
+  delete sanitized.verificationCode;
+  delete sanitized.isVerified;
+  delete sanitized.prescriptions;
+  delete sanitized.doctors;
+  delete sanitized.nationalityNumber;
+  delete sanitized.createdAt;
+  delete sanitized.updatedAt;
+  delete sanitized.birthday;
+  delete sanitized.patients;
+  delete sanitized.assistants;
+
+  return sanitized;
+};
+
 // Get the assistant's data
 router.get("/", auth, async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
@@ -39,10 +59,7 @@ router.get("/", auth, async (req, res) => {
     }
 
     // Send Assistant without password, tokens, and verification code
-    const sanitizedAssistant = assistant.toObject();
-    delete sanitizedAssistant.password;
-    delete sanitizedAssistant.tokens;
-    delete sanitizedAssistant.verificationCode;
+    const sanitizedAssistant = handleSensitiveData(assistant.toObject());
 
     res.send(sanitizedAssistant);
   } catch (error) {
@@ -144,7 +161,14 @@ router.post("/signIn", async (req, res) => {
 
     await assistant.generateAuthToken();
 
-    res.status(201).send("Logged in successfully");
+    // save last token before omitting it
+    const token = assistant.tokens[assistant.tokens.length - 1].token;
+
+    // omit sensitive data
+    const sanitized = handleSensitiveData(assistant.toObject());
+
+    // send the token , name , email and id
+    res.status(201).send({ token, ...sanitized });
   } catch (error) {
     res.status(500).send("Failed to login: " + error.message);
   }
@@ -177,38 +201,13 @@ router.post("/signOut", auth, async (req, res) => {
   }
 });
 
-// Deleting the Assistant account by token >> delete
-router.delete("/del", auth, async (req, res) => {
-  const token = req.header("Authorization").replace("Bearer ", "");
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  const userType = decoded.userType;
-
-  if (userType !== "assistant") {
-    return res.status(401).send("Unauthorized user");
-  }
-
-  try {
-    const assistant = await Assistant.findOne({ "tokens.token": token });
-
-    if (!assistant) {
-      return res.status(404).send("Assistant not found");
-    }
-
-    await assistant.deleteOne();
-
-    res.send("Assistant deleted successfully");
-  } catch (error) {
-    res.status(500).send("Failed to delete Assistant: " + error.message);
-  }
-});
-
 // Updating the Assistant's data by token >> update
 router.put("/update", auth, async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userType = decoded.userType;
 
-  if (userType === "patient") {
+  if (userType !== "assistant") {
     return res.status(401).send("Unauthorized user");
   }
 
@@ -235,12 +234,44 @@ router.put("/update", auth, async (req, res) => {
   }
 
   try {
-    updates.forEach((update) => (req.user[update] = req.body[update]));
-    await req.user.save();
+    const assistant = await Assistant.findOne({ "tokens.token": token });
+
+    if (!assistant) {
+      return res.status(404).send("Assistant not found");
+    }
+
+    updates.forEach((update) => (assistant[update] = req.body[update]));
+
+    await assistant.save();
 
     res.send("Assistant updated successfully");
   } catch (error) {
     res.status(500).send("Failed to update Assistant: " + error.message);
+  }
+});
+
+// Deleting the Assistant account by token >> delete
+router.delete("/del", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "assistant") {
+    return res.status(401).send("Unauthorized user");
+  }
+
+  try {
+    const assistant = await Assistant.findOne({ "tokens.token": token });
+
+    if (!assistant) {
+      return res.status(404).send("Assistant not found");
+    }
+
+    await assistant.deleteOne();
+
+    res.send("Assistant deleted successfully");
+  } catch (error) {
+    res.status(500).send("Failed to delete Assistant: " + error.message);
   }
 });
 

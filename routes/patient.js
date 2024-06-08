@@ -28,10 +28,8 @@ const handleSensitiveData = (data) => {
   delete sanitized.isVerified;
   delete sanitized.prescriptions;
   delete sanitized.doctors;
-  delete sanitized.nationalityNumber;
   delete sanitized.createdAt;
   delete sanitized.updatedAt;
-  delete sanitized.birthday;
   delete sanitized.patients;
   delete sanitized.assistants;
 

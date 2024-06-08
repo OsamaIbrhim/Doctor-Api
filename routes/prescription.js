@@ -20,6 +20,10 @@ router.get("/:id", async (req, res) => {
       return res.status(404).send("Prescription not found");
     }
 
+    // populate the prescription's patient and doctor
+    await prescription.populate("patient");
+    await prescription.populate("doctor");
+
     res.send(prescription);
   } catch (error) {
     console.error("Failed to fetch prescription:", error);

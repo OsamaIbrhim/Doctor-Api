@@ -5,7 +5,6 @@ import Patient from "../models/Patient.js";
 import Prescription from "../models/Prescription.js";
 import Drug from "../models/Drug.js";
 import dotenv from "dotenv";
-import auth from "../middleware/auth.js";
 dotenv.config();
 
 const router = express.Router();
@@ -111,33 +110,57 @@ router.post("/add", async (req, res) => {
   }
 });
 
-// Update prescription
-router.put("/update/:id", async (req, res) => {
-  const { drugs: drugsNames } = req.body;
+// Update prescription by removing a drug
+router.patch("/update-remove/:id", async (req, res) => {
+  const id = req.params.id;
+  const { drugId } = req.body;
 
   try {
-    if (!drugsNames || !Array.isArray(drugsNames) || drugsNames.length === 0) {
-      return res.status(400).send("Drugs array is required");
-    }
-
-    const drugs = [];
-    for (const name of drugsNames) {
-      const drug = await Drug.findOne({ name });
-      if (!drug) {
-        return res.status(404).send(`Drug "${name}" not found`);
-      }
-      drugs.push(drug._id);
-    }
-
-    const prescription = await Prescription.findByIdAndUpdate(
-      req.params.id,
-      { drugs },
-      { new: true }
-    );
-
+    const prescription = await Prescription.findById(id);
     if (!prescription) {
       return res.status(404).send("Prescription not found");
     }
+
+    const drug = await Drug.findById(drugId);
+    if (!drug) {
+      return res
+        .status(404)
+        .send(`Drug "${drugId}" not found, please check the drug name.`);
+    }
+
+    prescription.drugs = prescription.drugs.filter(
+      (drug) => drug._id !== drugId
+    );
+    await prescription.save();
+
+    res.send(prescription);
+  } catch (error) {
+    console.error("Failed to update prescription:", error);
+    res.status(500).send("Failed to update prescription");
+  }
+});
+
+//update prescription by adding a drug
+router.patch("/update-add/:id", async (req, res) => {
+  const id = req.params.id;
+  const { drugId } = req.body;
+
+  try {
+    const prescription = await Prescription.findById(id);
+    if (!prescription) {
+      return res.status(404).send("Prescription not found");
+    }
+
+    const drug = await Drug.findById(drugId);
+    if (!drug) {
+      return res
+        .status(404)
+        .send(`Drug "${drugId}" not found, please check the drug name.`);
+    }
+
+    // add the drug to the prescription
+    prescription.drugs.push({ _id: drugId });
+    await prescription.save();
 
     res.send(prescription);
   } catch (error) {

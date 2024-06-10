@@ -87,7 +87,7 @@ const patientSchema = new Schema(
 
 // Calculate age
 patientSchema.virtual("age").get(function () {
-  if (!this.birthday) return undefined;
+  if (!this.birthday) return null;
   const diffMilliseconds = Date.now() - this.birthday.getTime();
   const ageDate = new Date(diffMilliseconds);
   return Math.abs(ageDate.getUTCFullYear() - 1970);

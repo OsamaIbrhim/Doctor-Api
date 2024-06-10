@@ -440,21 +440,14 @@ router.get("/patients", auth, async (req, res) => {
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userType = decoded.userType;
 
-  if (userType === "patient") {
+  if (userType !== "doctor") {
     return res.status(401).send("Unauthorized user");
   }
 
   try {
-    let doctor;
-
-    if (userType === "assistant") {
-      const assistant = await Assistant.findOne({ "tokens.token": token });
-      doctor = await Doctor.findById(assistant.doctorId).populate("patients");
-    } else {
-      doctor = await Doctor.findOne({ "tokens.token": token }).populate(
-        "patients"
-      );
-    }
+    const doctor = await Doctor.findOne({ "tokens.token": token }).populate(
+      "patients"
+    );
 
     if (!doctor) {
       return res.status(404).send("Doctor not found");

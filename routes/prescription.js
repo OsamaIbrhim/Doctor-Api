@@ -9,6 +9,21 @@ dotenv.config();
 
 const router = express.Router();
 
+const handleSensitiveData = (data) => {
+  const sanitized = data;
+
+  delete sanitized.password;
+  delete sanitized.tokens;
+  delete sanitized.verificationCode;
+  delete sanitized.isVerified;
+  delete sanitized.prescriptions;
+  delete sanitized.doctors;
+  delete sanitized.patients;
+  delete sanitized.assistants;
+
+  return sanitized;
+};
+
 // Get prescriptions by id
 router.get("/:id", async (req, res) => {
   const id = req.params.id;
@@ -24,7 +39,14 @@ router.get("/:id", async (req, res) => {
     await prescription.populate("patient");
     await prescription.populate("doctor");
 
-    res.send(prescription);
+    // omiting sensitive data
+    const patient = handleSensitiveData(prescription.patient.toObject());
+    const doctor = handleSensitiveData(prescription.doctor.toObject());
+
+    prescription.patient = { age: patient.age, ...patient };
+    prescription.doctor = { age: doctor.age, ...doctor };
+
+    res.status(200).send(prescription);
   } catch (error) {
     console.error("Failed to fetch prescription:", error);
     res.status(500).send("Failed to fetch prescription");

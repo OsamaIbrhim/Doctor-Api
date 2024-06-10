@@ -2,6 +2,7 @@ import express from "express";
 const router = express.Router();
 import Doctor from "../models/Doctor.js";
 import Assistant from "../models/Assistant.js";
+import Prescription from "../models/Prescription.js";
 import nodemailer from "nodemailer";
 import crs from "crypto-random-string";
 import auth from "../middleware/auth.js";
@@ -396,6 +397,43 @@ router.delete("/delAssistant", auth, async (req, res) => {
     res.send("Assistant removed successfully");
   } catch (error) {
     res.status(500).send("Failed to remove assistant " + error.message);
+  }
+});
+
+// get all doctor's prescription
+router.get("/prescriptions", auth, async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "doctor") {
+    return res.status(401).send("Unauthorized user");
+  }
+
+  try {
+    const doctor = await Doctor.findById(decoded._id);
+
+    if (!doctor) {
+      return res.status(404).send("Doctor not found");
+    }
+
+    const prescriptions = await Prescription.find({
+      doctor: doctor._id,
+    })
+      .populate("patient")
+      .populate("doctor");
+
+    // omit sensitive data from prescriptions
+    prescriptions.forEach((prescription) => {
+      prescription.patient = handleSensitiveData(
+        prescription.patient.toObject()
+      );
+      prescription.doctor = handleSensitiveData(prescription.doctor.toObject());
+    });
+
+    res.send(prescriptions);
+  } catch (error) {
+    res.status(500).send("Failed to get prescriptions " + error.message);
   }
 });
 

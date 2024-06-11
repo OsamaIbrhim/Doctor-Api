@@ -63,19 +63,17 @@ router.post("/add", async (req, res) => {
     return res.status(401).send("Only doctors can add prescription.");
   }
 
-  const { patient: patientId, drugs: drugsNames } = req.body;
+  const { patient: patientId, drugs: drugsId } = req.body;
 
   try {
-    const drugs = [];
     await Promise.all(
-      drugsNames.map(async (name) => {
-        const drug = await Drug.findOne({ name });
+      drugsId.map(async (id) => {
+        const drug = await Drug.findById(id);
         if (!drug) {
           return res
             .status(404)
-            .send(`Drug "${name}" not found, please check the drug name.`);
+            .send(`Drug "${id}" not found, please check the drug name.`);
         }
-        drugs.push({ _id: drug._id, name: drug.name });
       })
     );
 
@@ -96,12 +94,8 @@ router.post("/add", async (req, res) => {
     const prescription = new Prescription({
       patient: { _id: patientId },
       doctor: { _id: doctorId },
-      drugs: drugs.map((drug) => ({ name: drug.name })),
+      drugs: drugsId.map((id) => ({ _id: id })),
     });
-
-    // populate the patient's prescriptions and doctors
-    // await patient.populate("prescriptions");
-    // await patient.populate("doctors");
 
     // chack if the doctor list is empty or not
     if (patient.doctors.length === 0) {
@@ -117,10 +111,6 @@ router.post("/add", async (req, res) => {
       patient.doctors.push(doctorId);
     }
 
-    patient.prescriptions.push(prescription._id);
-    await prescription.save();
-    await patient.save();
-
     // push the patient to the doctor's patients list if the patient is not exist
     const patientExist = doctor.patients.find(
       (patient) => patient._id.toString() === patientId.toString()
@@ -129,6 +119,10 @@ router.post("/add", async (req, res) => {
       doctor.patients.push({ _id: patientId });
     }
 
+    patient.prescriptions.push(prescription._id);
+    await prescription.save();
+    await patient.save();
+    await doctor.save();
     res.status(201).send(prescription);
   } catch (error) {
     console.error("Failed to add prescription:", error);
@@ -136,58 +130,51 @@ router.post("/add", async (req, res) => {
   }
 });
 
-// Update prescription by removing a drug
-router.patch("/update-remove/:id", async (req, res) => {
+// Update prescription
+router.put("/update/:id", async (req, res) => {
   const id = req.params.id;
-  const { drugId } = req.body;
+  const { drugs: drugsId } = req.body;
 
   try {
     const prescription = await Prescription.findById(id);
+
     if (!prescription) {
       return res.status(404).send("Prescription not found");
     }
 
-    const drug = await Drug.findById(drugId);
-    if (!drug) {
-      return res
-        .status(404)
-        .send(`Drug "${drugId}" not found, please check the drug name.`);
-    }
-
-    prescription.drugs = prescription.drugs.filter(
-      (drug) => drug._id !== drugId
+    // remove the drugs if it not in the new drugs and back only on id if it's exist
+    prescription.drugs = prescription.drugs.filter((drug) =>
+      drugsId.includes(drug._id.toString())
     );
+
+    // push the new drugs to the prescription
+    await Promise.all(
+      drugsId.map(async (drugId) => {
+        const drug = await Drug.findById(drugId);
+        if (!drug) {
+          return res
+            .status(404)
+            .send(`Drug not found, please check the drug name.`);
+        }
+        prescription.drugs.push(drugId);
+      })
+    );
+
+    // populate the prescription's patient, doctor and drugs
+    await Promise.all([
+      prescription.populate("patient"),
+      prescription.populate("doctor"),
+      prescription.populate("drugs"),
+    ]);
+
+    // omiting sensitive data
+    const patient = handleSensitiveData(prescription.patient.toObject());
+    const doctor = handleSensitiveData(prescription.doctor.toObject());
+
+    prescription.patient = { age: patient.age, ...patient };
+    prescription.doctor = { age: doctor.age, ...doctor };
+
     await prescription.save();
-
-    res.send(prescription);
-  } catch (error) {
-    console.error("Failed to update prescription:", error);
-    res.status(500).send("Failed to update prescription");
-  }
-});
-
-//update prescription by adding a drug
-router.patch("/update-add/:id", async (req, res) => {
-  const id = req.params.id;
-  const { drugId } = req.body;
-
-  try {
-    const prescription = await Prescription.findById(id);
-    if (!prescription) {
-      return res.status(404).send("Prescription not found");
-    }
-
-    const drug = await Drug.findById(drugId);
-    if (!drug) {
-      return res
-        .status(404)
-        .send(`Drug "${drugId}" not found, please check the drug name.`);
-    }
-
-    // add the drug to the prescription
-    prescription.drugs.push({ _id: drugId });
-    await prescription.save();
-
     res.send(prescription);
   } catch (error) {
     console.error("Failed to update prescription:", error);

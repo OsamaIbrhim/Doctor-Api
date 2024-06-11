@@ -5,6 +5,7 @@ import Patient from "../models/Patient.js";
 import Prescription from "../models/Prescription.js";
 import Drug from "../models/Drug.js";
 import dotenv from "dotenv";
+import { promises } from "supertest/lib/test.js";
 dotenv.config();
 
 const router = express.Router();
@@ -36,8 +37,11 @@ router.get("/:id", async (req, res) => {
     }
 
     // populate the prescription's patient and doctor
-    await prescription.populate("patient");
-    await prescription.populate("doctor");
+    await Promise.all([
+      prescription.populate("patient"),
+      prescription.populate("doctor"),
+      prescription.populate("drugs"),
+    ]);
 
     // omiting sensitive data
     const patient = handleSensitiveData(prescription.patient.toObject());

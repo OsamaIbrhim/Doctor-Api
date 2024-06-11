@@ -38,6 +38,7 @@ router.get("/:id", async (req, res) => {
     // populate the prescription's patient and doctor
     await prescription.populate("patient");
     await prescription.populate("doctor");
+    await prescription.populate("drugs");
 
     // omiting sensitive data
     const patient = handleSensitiveData(prescription.patient.toObject());

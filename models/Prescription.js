@@ -14,10 +14,8 @@ const prescriptionSchema = new Schema(
     },
     drugs: [
       {
-        name: {
-          type: String,
-          required: true,
-        },
+        type: Schema.Types.ObjectId,
+        ref: "Drug",
       },
     ],
   },

@@ -5,6 +5,7 @@ import helmet from "helmet"; // Import helmet
 import doctorRoutes from "./routes/doctor.js";
 import patientRoutes from "./routes/patient.js";
 import prescriptionRoutes from "./routes/prescription.js";
+import pendingPrescription from "./routes/pendingPrescription.js";
 import drugRoutes from "./routes/drug.js";
 import assistantRoutes from "./routes/assistant.js";
 import { config } from "dotenv";
@@ -35,6 +36,7 @@ app.use("/pre", auth, prescriptionRoutes);
 app.use("/drug", auth, drugRoutes);
 app.use("/doc", doctorRoutes);
 app.use("/ast", assistantRoutes);
+app.use("/pen", auth, pendingPrescription);
 
 // Database connection
 const url = process.env.MONGO_URI;

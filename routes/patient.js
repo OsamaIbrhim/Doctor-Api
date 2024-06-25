@@ -368,6 +368,8 @@ router.get("/prescriptions", auth, async (req, res) => {
           prescription.patient.toObject()
         );
 
+        await prescription.populate("drugs");
+
         return {
           ...prescription.toObject(),
           patient: sanitizedPatient,

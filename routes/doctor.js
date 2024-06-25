@@ -421,7 +421,8 @@ router.get("/prescriptions", auth, async (req, res) => {
       doctor: doctor._id,
     })
       .populate("patient")
-      .populate("doctor");
+      .populate("doctor")
+      .populate("drugs");
 
     // omit sensitive data from prescriptions
     prescriptions.forEach((prescription) => {

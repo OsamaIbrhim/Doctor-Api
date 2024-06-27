@@ -43,6 +43,10 @@ router.get("/:token", async (req, res) => {
       tokens: { $elemMatch: { token: doctorToken } },
     });
 
+    if (!doctor) {
+      return res.status(404).send("Doctor not found");
+    }
+
     const pendingPrescriptions = await PendingPrescription.find({
       doctorId: doctor._id,
     });

@@ -88,19 +88,19 @@ router.post("/add", async (req, res) => {
     return res.status(401).send("Unauthorized");
   }
 
-  const { patientId, doctorId, drugs } = req.body;
+  const { patientEmail, doctorEmail, drugs } = req.body;
 
   try {
-    const patient = await Patient.findById(patientId);
-    const doctor = await Doctor.findById(doctorId);
+    const patient = await Patient.findOne({ email: patientEmail });
+    const doctor = await Doctor.findOne({ email: doctorEmail });
 
     if (!patient || !doctor) {
       return res.status(404).send("Patient or doctor not found");
     }
 
     const pendingPrescription = new PendingPrescription({
-      patientId: patientId,
-      doctorId: doctorId,
+      patientId: patient._id,
+      doctorId: doctor._id,
       drugs,
     });
 

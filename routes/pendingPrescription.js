@@ -27,21 +27,18 @@ const handleSensitiveData = (data) => {
 };
 
 // Get all pending prescriptions
-router.get("/:token", async (req, res) => {
+router.get("/", async (req, res) => {
   const token = req.header("Authorization").replace("Bearer ", "");
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userType = decoded.userType;
-  const doctorToken = req.params.token;
 
-  if (userType !== "assistant") {
+  if (userType !== "doctor") {
     return res.status(401).send("Unauthorized");
   }
 
   try {
     // Fetch doctor by token
-    const doctor = await Doctor.findOne({
-      tokens: { $elemMatch: { token: doctorToken } },
-    });
+    const doctor = await Doctor.findById(decoded._id);
 
     if (!doctor) {
       return res.status(404).send("Doctor not found");

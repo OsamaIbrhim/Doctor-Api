@@ -135,6 +135,42 @@ router.delete("/del/:id", async (req, res) => {
   }
 });
 
+// chack if the doctor have the drugs , backed from the model
+router.post("/model-drugs", async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+  const { email, drugs } = req.body;
+
+  if (userType === "patient") {
+    return res.status(401).send("Unauthorized user");
+  }
+  try {
+    const doctor = await Doctor.findOne({ email: email });
+
+    if (!doctor) {
+      return res.status(404).send("Doctor not found");
+    }
+
+    const returnedDrugs = await Promise.all(
+      drugs.map(async (drug) => {
+        return Drug.findOne({ name: drug }).select("name _id");
+      })
+    );
+
+    const filteredNullDrug = returnedDrugs.filter((drug) => drug !== null);
+
+    if (filteredNullDrug.length === 0) {
+      return res.status(200).send("No drugs found");
+    }
+
+    res.status(201).send(filteredNullDrug);
+  } catch (error) {
+    console.error("Failed to fetch drug:", error);
+    res.status(500).send("Failed to fetch drug");
+  }
+});
+
 // Delete all drugs
 // router.delete("/delAll", async (req, res) => {
 //   try {

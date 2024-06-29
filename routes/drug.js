@@ -154,7 +154,9 @@ router.post("/model-drugs", async (req, res) => {
 
     const returnedDrugs = await Promise.all(
       drugs.map(async (drug) => {
-        return Drug.findOne({ name: drug }).select("name _id");
+        return Drug.findOne({ name: { $regex: new RegExp(drug, "i") } }).select(
+          "name _id"
+        );
       })
     );
 

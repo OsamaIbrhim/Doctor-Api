@@ -5,7 +5,6 @@ import Patient from "../models/Patient.js";
 import Prescription from "../models/Prescription.js";
 import Drug from "../models/Drug.js";
 import dotenv from "dotenv";
-import { promises } from "supertest/lib/test.js";
 dotenv.config();
 
 const router = express.Router();
@@ -36,12 +35,18 @@ router.get("/:id", async (req, res) => {
       return res.status(404).send("Prescription not found");
     }
 
-    // populate the prescription's patient and doctor
-    await Promise.all([
-      prescription.populate("patient"),
+    // populate the prescription's patient, doctor and drugs
+    await Promise.allSettled([
       prescription.populate("doctor"),
+      prescription.populate("patient"),
       prescription.populate("drugs"),
-    ]);
+    ]).then((results) => {
+      results.forEach((result) => {
+        if (result.status === "rejected") {
+          console.error("Failed to populate prescription:", result.reason);
+        }
+      });
+    });
 
     // omiting sensitive data
     const patient = handleSensitiveData(prescription.patient.toObject());
@@ -165,11 +170,17 @@ router.put("/update/:id", async (req, res) => {
     );
 
     // populate the prescription's patient, doctor and drugs
-    await Promise.all([
+    await Promise.allSettled([
       prescription.populate("patient"),
       prescription.populate("doctor"),
       prescription.populate("drugs"),
-    ]);
+    ]).then((results) => {
+      results.forEach((result) => {
+        if (result.status === "rejected") {
+          console.error("Failed to populate prescription:", result.reason);
+        }
+      });
+    });
 
     // omiting sensitive data
     const patient = handleSensitiveData(prescription.patient.toObject());
@@ -189,17 +200,30 @@ router.put("/update/:id", async (req, res) => {
 // Delete prescription
 router.delete("/del/:id", async (req, res) => {
   const id = req.params.id;
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
 
-  // const token = req.header("Authorization").replace("Bearer ", "");
-  // const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  // const userType = decoded.userType;
+  if (userType === "patient") {
+    return res
+      .status(401)
+      .send("Patients are not allowed to delete prescription.");
+  }
 
   try {
     const prescription = await Prescription.findByIdAndDelete(id);
 
     // populate the prescription's patient and doctor
-    await prescription.populate("patient");
-    await prescription.populate("doctor");
+    await Promise.allSettled([
+      prescription.populate("patient"),
+      prescription.populate("doctor"),
+    ]).then((results) => {
+      results.forEach((result) => {
+        if (result.status === "rejected") {
+          console.error("Failed to populate prescription:", result.reason);
+        }
+      });
+    });
 
     const patient = await Patient.findById(prescription.patient._id);
 

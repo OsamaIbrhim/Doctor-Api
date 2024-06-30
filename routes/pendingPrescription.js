@@ -2,6 +2,7 @@ import express from "express";
 import PendingPrescription from "../models/PendingPrescription.js";
 import Patient from "../models/Patient.js";
 import Doctor from "../models/Doctor.js";
+import Drug from "../models/Drug.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 dotenv.config();
@@ -99,10 +100,23 @@ router.post("/add", async (req, res) => {
       return res.status(404).send("Patient or doctor not found");
     }
 
+    // get the drugs and check if the drugs is valid and have the same doctorId
+    const drugsId = await Promise.all(
+      drugs.map(async (drug) => {
+        const drugId = Drug.findOne({
+          name: { $regex: new RegExp(drug, "i") },
+        }).select("_id");
+        return drugId;
+      })
+    );
+
+    const filteredNullDrug = drugsId.filter((drug) => drug !== null);
+    console.log(filteredNullDrug);
+
     const pendingPrescription = new PendingPrescription({
       patientId: patient._id,
       doctorId: doctor._id,
-      drugs,
+      drugs: filteredNullDrug,
     });
 
     await pendingPrescription.save();

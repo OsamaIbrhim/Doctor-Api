@@ -105,6 +105,7 @@ router.post("/add", async (req, res) => {
       drugs.map(async (drug) => {
         const drugId = Drug.findOne({
           name: { $regex: new RegExp(drug, "i") },
+          doctorId: doctor._id,
         }).select("_id");
         return drugId;
       })

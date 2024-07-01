@@ -92,6 +92,9 @@ router.post("/add", async (req, res) => {
 
   const { patientEmail, doctorEmail, drugs } = req.body;
 
+  // remove the dubplicate drugs
+  const uniqueDrugs = [...new Set(drugs)];
+
   try {
     const patient = await Patient.findOne({ email: patientEmail });
     const doctor = await Doctor.findOne({ email: doctorEmail });
@@ -102,7 +105,7 @@ router.post("/add", async (req, res) => {
 
     // get the drugs and check if the drugs is valid and have the same doctorId
     const drugsId = await Promise.all(
-      drugs.map(async (drug) => {
+      uniqueDrugs.map(async (drug) => {
         const drugId = Drug.findOne({
           name: { $regex: new RegExp(drug, "i") },
           doctorId: doctor._id,
@@ -111,13 +114,10 @@ router.post("/add", async (req, res) => {
       })
     );
 
-    const filteredNullDrug = drugsId.filter((drug) => drug !== null);
-    console.log(filteredNullDrug);
-
     const pendingPrescription = new PendingPrescription({
       patientId: patient._id,
       doctorId: doctor._id,
-      drugs: filteredNullDrug,
+      drugs: drugsId.filter((drug) => drug !== null),
     });
 
     await pendingPrescription.save();
@@ -135,7 +135,7 @@ router.delete("/del/:id", async (req, res) => {
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const userType = decoded.userType;
 
-  if (userType !== "assistant") {
+  if (userType !== "doctor") {
     return res.status(401).send("Unauthorized");
   }
 
@@ -152,6 +152,47 @@ router.delete("/del/:id", async (req, res) => {
   } catch (error) {
     console.error("Failed to delete pending prescription:", error);
     res.status(500).send("Failed to delete pending prescription");
+  }
+});
+
+// get pending prescription by id
+router.get("/:id", async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const userType = decoded.userType;
+
+  if (userType !== "doctor") {
+    return res.status(401).send("Unauthorized");
+  }
+
+  const id = req.params.id;
+
+  try {
+    const pendingPrescription = await PendingPrescription.findById(id);
+
+    if (!pendingPrescription) {
+      return res.status(404).send("Pending prescription not found");
+    }
+
+    // Populate patient and drug details for the prescription
+    await Promise.all([
+      pendingPrescription.populate("patientId"),
+      pendingPrescription.populate("drugs"),
+      pendingPrescription.populate("doctorId"),
+    ]);
+
+    // omit sensitive data
+    pendingPrescription.patientId = handleSensitiveData(
+      pendingPrescription.patientId.toObject()
+    );
+    pendingPrescription.doctorId = handleSensitiveData(
+      pendingPrescription.doctorId.toObject()
+    );
+
+    res.status(200).send(pendingPrescription);
+  } catch (error) {
+    console.error("Failed to fetch pending prescription:", error);
+    res.status(500).send("Failed to fetch pending prescription");
   }
 });
 

@@ -92,9 +92,6 @@ router.post("/add", async (req, res) => {
 
   const { patientEmail, doctorEmail, drugs } = req.body;
 
-  // remove the dubplicate drugs
-  const uniqueDrugs = [...new Set(drugs)];
-
   try {
     const patient = await Patient.findOne({ email: patientEmail });
     const doctor = await Doctor.findOne({ email: doctorEmail });
@@ -103,9 +100,11 @@ router.post("/add", async (req, res) => {
       return res.status(404).send("Patient or doctor not found");
     }
 
+    let uniqueDrugs;
+
     // get the drugs and check if the drugs is valid and have the same doctorId
     const drugsId = await Promise.all(
-      uniqueDrugs.map(async (drug) => {
+      drugs.map(async (drug) => {
         const drugId = Drug.findOne({
           name: { $regex: new RegExp(drug, "i") },
           doctorId: doctor._id,
@@ -114,10 +113,12 @@ router.post("/add", async (req, res) => {
       })
     );
 
+    uniqueDrugs = [...new Set(drugsId._id)];
+
     const pendingPrescription = new PendingPrescription({
       patientId: patient._id,
       doctorId: doctor._id,
-      drugs: drugsId.filter((drug) => drug !== null),
+      drugs: uniqueDrugs.filter((drug) => drug !== null),
     });
 
     await pendingPrescription.save();

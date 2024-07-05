@@ -5,6 +5,7 @@ import Doctor from "../models/Doctor.js";
 import Drug from "../models/Drug.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { ObjectId } from "mongodb";
 dotenv.config();
 
 const router = express.Router();
@@ -100,10 +101,10 @@ router.post("/add", async (req, res) => {
       return res.status(404).send("Patient or doctor not found");
     }
 
-    let uniqueDrugs;
+    var uniqueDrugs;
 
     // get the drugs and check if the drugs is valid and have the same doctorId
-    const drugsId = await Promise.all(
+    var drugsId = await Promise.all(
       drugs.map(async (drug) => {
         const drugId = Drug.findOne({
           name: { $regex: new RegExp(drug, "i") },
@@ -113,12 +114,19 @@ router.post("/add", async (req, res) => {
       })
     );
 
-    uniqueDrugs = [...new Set(drugsId._id)];
+    // remove the null values
+    drugsId = drugsId.filter((drugId) => drugId !== null);
+
+    // remove the duplicate values
+    var uniqueDrugIds = [...new Set(drugsId.map((drugId) => drugId._id.toString()))];
+
+    // back to object id
+    uniqueDrugs = uniqueDrugIds.map((id) => new ObjectId(id));
 
     const pendingPrescription = new PendingPrescription({
       patientId: patient._id,
       doctorId: doctor._id,
-      drugs: uniqueDrugs.filter((drug) => drug !== null),
+      drugs: uniqueDrugs,
     });
 
     await pendingPrescription.save();

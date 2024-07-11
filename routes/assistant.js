@@ -25,7 +25,6 @@ const transporter = nodemailer.createTransport({
 const handleSensitiveData = (data) => {
   const sanitized = data;
 
-  //tesssssssssssssssssssst
   delete sanitized.password;
   delete sanitized.tokens;
   delete sanitized.verificationCode;
